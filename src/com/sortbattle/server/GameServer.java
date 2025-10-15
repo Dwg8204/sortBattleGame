@@ -109,6 +109,11 @@ public class GameServer {
         broadcastPlayerList();
     }
     
+    public synchronized List<Player> getOnlinePlayers() {
+        return onlineClients.values().stream()
+                .map(ClientHandler::getPlayer)
+                .collect(Collectors.toList());
+    }
     /**
      * XÓA CLIENT KHỎI DANH SÁCH ONLINE
      */

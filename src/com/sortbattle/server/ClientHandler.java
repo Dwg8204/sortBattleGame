@@ -137,8 +137,11 @@ public class ClientHandler implements Runnable {
             player = authenticatedPlayer;
             player.setStatus(Player.PlayerStatus.IDLE);
             server.addOnlineClient(this);
+
             sendMessage(new Message(MessageType.LOGIN_SUCCESS, player));
-            System.out.println("✓ Player logged in: " + username);
+            System.out.println("Player logged in: " + username);
+            List<Player> onlinePlayers = server.getOnlinePlayers();
+            sendMessage(new Message(MessageType.PLAYER_LIST_UPDATE, onlinePlayers));
         } else {
             sendMessage(new Message(MessageType.LOGIN_FAILURE, "Sai tên đăng nhập hoặc mật khẩu!"));
         }
