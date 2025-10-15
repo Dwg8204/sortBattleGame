@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 public class ClientController {
-    private static final String SERVER_ADDRESS = "localhost";
+    private static final String SERVER_ADDRESS = "172.11.122.191";
     private static final int SERVER_PORT = 12345;
 
     private Socket socket;
@@ -133,12 +133,15 @@ public class ClientController {
         switch (message.getType()) {
             case LOGIN_SUCCESS:
                 model.setCurrentPlayer((Player) message.getPayload());
-                System.out.println("✓ Login successful: " + model.getCurrentPlayer().getUsername());
+                System.out.println("Login successful: " + model.getCurrentPlayer().getUsername());
                 if (loginView != null) {
                     loginView.dispose();
                 }
                 lobbyView = new LobbyView(this);
                 lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
+                if (!model.getOnlinePlayers().isEmpty()) {
+                    lobbyView.updatePlayerList(model.getOnlinePlayers());
+                }
                 lobbyView.setVisible(true);
                 break;
                 
@@ -175,9 +178,12 @@ public class ClientController {
                 
             case PLAYER_LIST_UPDATE:
                 model.setOnlinePlayers((List<Player>) message.getPayload());
-                if (lobbyView != null && lobbyView.isVisible()) {
+                // Cập nhật luôn nếu lobbyView đã tồn tại
+                if (lobbyView != null) {
                     lobbyView.updatePlayerList(model.getOnlinePlayers());
                 }
+                // Nếu chưa có lobbyView, danh sách đã lưu trong model
+                // sẽ được hiển thị khi tạo lobbyView ở LOGIN_SUCCESS
                 break;
                 
             case INCOMING_CHALLENGE:
