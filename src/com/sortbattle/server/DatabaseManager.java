@@ -11,7 +11,7 @@ import java.util.List;
 public class DatabaseManager {
     private static final String DB_URL = "jdbc:mysql://localhost:3307/sortbattle_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
     private static final String DB_USER = "root";
-    private static final String DB_PASSWORD = ""; // THAY BẰNG PASSWORD MYSQL CỦA BẠN
+    private static final String DB_PASSWORD = ""; 
     
     private Connection connection;
     
@@ -110,9 +110,9 @@ public class DatabaseManager {
             stmt.setInt(2, won ? 1 : 0);
             stmt.setString(3, username);
             stmt.executeUpdate();
-            System.out.println("✓ Updated score for " + username + ": +" + scoreChange + " (won: " + won + ")");
+            System.out.println(" Updated score for " + username + ": +" + scoreChange + " (won: " + won + ")");
         } catch (SQLException e) {
-            System.err.println("✗ Update score error: " + e.getMessage());
+            System.err.println(" Update score error: " + e.getMessage());
         }
     }
     
@@ -122,7 +122,7 @@ public class DatabaseManager {
             stmt.setString(1, username);
             stmt.executeUpdate();
         } catch (SQLException e) {
-            System.err.println("✗ Update last_login error: " + e.getMessage());
+            System.err.println(" Update last_login error: " + e.getMessage());
         }
     }
     
@@ -150,9 +150,9 @@ public class DatabaseManager {
             stmt.setInt(9, timeLimit);
             stmt.setInt(10, duration);
             stmt.executeUpdate();
-            System.out.println("✓ Match history saved: " + player1 + " vs " + player2);
+            System.out.println("Match history saved: " + player1 + " vs " + player2);
         } catch (SQLException e) {
-            System.err.println("✗ Save match history error: " + e.getMessage());
+            System.err.println("Save match history error: " + e.getMessage());
         }
     }
     

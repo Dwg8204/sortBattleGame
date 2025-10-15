@@ -41,7 +41,7 @@ public class ClientController {
      */
     private void connectToServer() {
         try {
-            System.out.println(">>> Connecting to server at " + SERVER_ADDRESS + ":" + SERVER_PORT);
+            System.out.println(" Connecting to server at " + SERVER_ADDRESS + ":" + SERVER_PORT);
             socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
             
             // QUAN TRỌNG: Tạo OutputStream TRƯỚC, flush, rồi mới tạo InputStream
@@ -49,7 +49,7 @@ public class ClientController {
             out.flush();
             in = new ObjectInputStream(socket.getInputStream());
 
-            System.out.println("✓ Connected to server successfully");
+            System.out.println(" Connected to server successfully");
 
             // Khởi động thread lắng nghe server
             Thread listenerThread = new Thread(this::listenToServer);
@@ -57,7 +57,7 @@ public class ClientController {
             listenerThread.start();
             
         } catch (IOException e) {
-            System.err.println("✗ Cannot connect to server: " + e.getMessage());
+            System.err.println(" Cannot connect to server: " + e.getMessage());
             e.printStackTrace();
             JOptionPane.showMessageDialog(null, 
                 "Không thể kết nối đến server!\n" + 

@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
+import java.text.Collator;
 public class GameSession {
     private final String gameId;
     private final ClientHandler player1Handler;
@@ -90,7 +90,7 @@ public class GameSession {
             shuffledItems = numbers.stream().map(String::valueOf).collect(Collectors.toList());
         } else { // WORD
             if (WORD_DICTIONARY.isEmpty()) {
-                // Fallback to numbers if dictionary failed to load
+                // Quay về dữ liệu số nếu không tải được từ điển
                 config.setDataType(GameConfig.DataType.NUMBER);
                 config.setItemCount(60);
                 prepareGameData();
@@ -102,19 +102,28 @@ public class GameSession {
 
         // Tạo danh sách đã được sắp xếp để kiểm tra
         sortedItems = new ArrayList<>(shuffledItems);
-        if (config.getSortOrder() == GameConfig.SortOrder.ASCENDING) {
-            if (config.getDataType() == GameConfig.DataType.NUMBER) {
+                
+        if (config.getDataType() == GameConfig.DataType.NUMBER) {
+            // Sắp xếp số
+            if (config.getSortOrder() == GameConfig.SortOrder.ASCENDING) {
                 sortedItems.sort((s1, s2) -> Integer.compare(Integer.parseInt(s1), Integer.parseInt(s2)));
-            } else {
-                Collections.sort(sortedItems);
-            }
-        } else { // DESCENDING
-            if (config.getDataType() == GameConfig.DataType.NUMBER) {
+            } else { // DESCENDING
                 sortedItems.sort((s1, s2) -> Integer.compare(Integer.parseInt(s2), Integer.parseInt(s1)));
-            } else {
-                sortedItems.sort(Collections.reverseOrder());
+            }
+        } else { // WORD
+            // Sắp xếp từ tiếng Việt - SỬ DỤNG COLLATOR
+            Collator vietnameseCollator = Collator.getInstance(new Locale("vi", "VN"));
+            vietnameseCollator.setStrength(Collator.PRIMARY); // Bỏ qua dấu thanh khi so sánh
+            
+            if (config.getSortOrder() == GameConfig.SortOrder.ASCENDING) {
+                // Tăng dần: a → z
+                sortedItems.sort(vietnameseCollator);
+            } else { // DESCENDING
+                // Giảm dần: z → a
+                sortedItems.sort(vietnameseCollator.reversed());
             }
         }
+        
     }
     
     private Map<String, Object> createGameStartPayload() {
