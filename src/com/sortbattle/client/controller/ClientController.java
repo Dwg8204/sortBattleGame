@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 public class ClientController {
-    private static final String SERVER_ADDRESS = "172.11.122.191";
+    private static final String SERVER_ADDRESS = "localhost";
     private static final int SERVER_PORT = 12345;
 
     private Socket socket;
@@ -30,6 +30,7 @@ public class ClientController {
     private LoginView loginView;
     private LobbyView lobbyView;
     private GameView gameView;
+    private JDialog activeDialog; // Để theo dõi dialog đang mở (RegisterDialog)
 
     public ClientController() {
         this.model = new ClientModel();
@@ -125,11 +126,18 @@ public class ClientController {
         loginView.setVisible(true);
     }
 
+    public void setActiveDialog(JDialog dialog) {
+        this.activeDialog = dialog;
+    }
+
     /**
      * XỬ LÝ MESSAGE TỪ SERVER
      */
     private void handleServerMessage(Message message) {
         System.out.println("Handling message: " + message.getType());
+        // Xác định cửa sổ cha cho các thông báo
+        // Ưu tiên dialog đang mở, nếu không có thì dùng loginView
+        Component parent = (activeDialog != null && activeDialog.isVisible()) ? activeDialog : loginView;
         switch (message.getType()) {
             case LOGIN_SUCCESS:
                 model.setCurrentPlayer((Player) message.getPayload());
@@ -140,7 +148,7 @@ public class ClientController {
                 lobbyView = new LobbyView(this);
                 lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
                 if (!model.getOnlinePlayers().isEmpty()) {
-                    lobbyView.updatePlayerList(model.getOnlinePlayers());
+                    lobbyView.updatePlayerList(model.getOnlinePlayers(), model.getCurrentPlayer().getUsername());
                 }
                 lobbyView.setVisible(true);
                 break;
@@ -148,21 +156,26 @@ public class ClientController {
             case LOGIN_FAILURE:
                 String errorMsg = (String) message.getPayload();
                 System.out.println("✗ Login failed: " + errorMsg);
-                JOptionPane.showMessageDialog(loginView, 
+                JOptionPane.showMessageDialog(loginView, // Lỗi đăng nhập luôn ở màn hình login
                     "Đăng nhập thất bại: " + errorMsg, 
                     "Lỗi đăng nhập", 
                     JOptionPane.ERROR_MESSAGE);
                 break;
                 
             case REGISTER_SUCCESS:
-                JOptionPane.showMessageDialog(loginView, 
+                // Nếu đăng ký thành công, đóng dialog đăng ký lại
+                if (activeDialog != null) {
+                    activeDialog.dispose();
+                }
+                JOptionPane.showMessageDialog(loginView, // Thông báo thành công trên màn hình login
                     "Đăng ký thành công! Vui lòng đăng nhập.", 
                     "Thành công", 
                     JOptionPane.INFORMATION_MESSAGE);
                 break;
                 
             case REGISTER_FAILURE:
-                JOptionPane.showMessageDialog(loginView, 
+                // Hiển thị lỗi ngay trên dialog đăng ký
+                JOptionPane.showMessageDialog(parent, 
                     "Đăng ký thất bại: " + message.getPayload(), 
                     "Lỗi", 
                     JOptionPane.ERROR_MESSAGE);
@@ -179,8 +192,8 @@ public class ClientController {
             case PLAYER_LIST_UPDATE:
                 model.setOnlinePlayers((List<Player>) message.getPayload());
                 // Cập nhật luôn nếu lobbyView đã tồn tại
-                if (lobbyView != null) {
-                    lobbyView.updatePlayerList(model.getOnlinePlayers());
+                if (lobbyView != null && lobbyView.isVisible()) {
+                    lobbyView.updatePlayerList(model.getOnlinePlayers(), model.getCurrentPlayer().getUsername());
                 }
                 // Nếu chưa có lobbyView, danh sách đã lưu trong model
                 // sẽ được hiển thị khi tạo lobbyView ở LOGIN_SUCCESS

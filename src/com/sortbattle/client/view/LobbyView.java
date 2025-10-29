@@ -90,10 +90,14 @@ bottomPanel.add(historyButton);
         welcomeLabel.setText("Chào mừng, " + username + "!");
     }
     
-    public void updatePlayerList(List<Player> players) {
-        playerListModel.clear();
-        players.forEach(playerListModel::addElement);
+    public void updatePlayerList(List<Player> players, String currentPlayerUsername) {
+    playerListModel.clear();
+    for (Player player : players) {
+        if (!player.getUsername().equals(currentPlayerUsername)) {
+            playerListModel.addElement(player);
+        }
     }
+}
     
     public void showGameConfigDialog(String opponentName) {
         // Tạo dialog

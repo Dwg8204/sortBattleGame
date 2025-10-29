@@ -11,7 +11,7 @@ import java.util.List;
 public class DatabaseManager {
     private static final String DB_URL = "jdbc:mysql://localhost:3307/sortbattle_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
     private static final String DB_USER = "root";
-    private static final String DB_PASSWORD = ""; 
+    private static final String DB_PASSWORD = "Luuxuandung24@"; 
     
     private Connection connection;
     
