@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 public class ClientController {
-    private static final String SERVER_ADDRESS = "172.11.122.191";
+    private static final String SERVER_ADDRESS = "172.11.78.98";
     private static final int SERVER_PORT = 12345;
 
     private Socket socket;

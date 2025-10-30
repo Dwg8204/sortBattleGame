@@ -42,7 +42,7 @@ public class GameSession {
     
     private static List<String> loadWordDictionary() {
         List<String> words = new ArrayList<>();
-        String path = "src/resources/vi-DauCu.dic";
+        String path = "src/resources/vi-DauCu-filtered.dic";
         try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
             String line;
             reader.readLine(); // Skip first line (word count)
