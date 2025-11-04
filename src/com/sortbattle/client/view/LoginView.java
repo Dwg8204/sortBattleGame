@@ -80,10 +80,16 @@ public class LoginView extends JFrame {
         registerButton.setForeground(Color.WHITE);
         registerButton.setFocusPainted(false);
         registerButton.setPreferredSize(new Dimension(200, 30));
-        registerButton.addActionListener(e -> register());
-        panel.add(registerButton, gbc);
+        registerButton.addActionListener((e) -> {
+         // Tạo và hiển thị dialog đăng ký
+         RegisterDialog dialog = new RegisterDialog(this, controller);
+         controller.setActiveDialog(dialog); // Báo cho controller biết dialog nào đang hoạt động
+         dialog.setVisible(true);
+         controller.setActiveDialog(null); // Dọn dẹp sau khi dialog đóng
+      });
+      panel.add(registerButton, gbc);
 
-        add(panel);
+      this.add(panel);
         
         // Enter để login
         passwordField.addActionListener(e -> login());
@@ -105,44 +111,44 @@ public class LoginView extends JFrame {
         controller.attemptLogin(username, password);
     }
     
-    private void register() {
-        String username = usernameField.getText().trim();
-        String password = new String(passwordField.getPassword()).trim();
+    // private void register() {
+    //     String username = usernameField.getText().trim();
+    //     String password = new String(passwordField.getPassword()).trim();
         
-        if (username.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, 
-                "Vui lòng nhập đầy đủ thông tin!", 
-                "Lỗi", 
-                JOptionPane.ERROR_MESSAGE);
-            return;
-        }
+    //     if (username.isEmpty() || password.isEmpty()) {
+    //         JOptionPane.showMessageDialog(this, 
+    //             "Vui lòng nhập đầy đủ thông tin!", 
+    //             "Lỗi", 
+    //             JOptionPane.ERROR_MESSAGE);
+    //         return;
+    //     }
         
-        if (username.length() < 3) {
-            JOptionPane.showMessageDialog(this, 
-                "Username phải có ít nhất 3 ký tự!", 
-                "Lỗi", 
-                JOptionPane.ERROR_MESSAGE);
-            return;
-        }
+    //     if (username.length() < 3) {
+    //         JOptionPane.showMessageDialog(this, 
+    //             "Username phải có ít nhất 3 ký tự!", 
+    //             "Lỗi", 
+    //             JOptionPane.ERROR_MESSAGE);
+    //         return;
+    //     }
         
-        if (password.length() < 6) {
-            JOptionPane.showMessageDialog(this, 
-                "Mật khẩu phải có ít nhất 6 ký tự!", 
-                "Lỗi", 
-                JOptionPane.ERROR_MESSAGE);
-            return;
-        }
+    //     if (password.length() < 6) {
+    //         JOptionPane.showMessageDialog(this, 
+    //             "Mật khẩu phải có ít nhất 6 ký tự!", 
+    //             "Lỗi", 
+    //             JOptionPane.ERROR_MESSAGE);
+    //         return;
+    //     }
         
-        // Confirm password
-        String confirmPass = JOptionPane.showInputDialog(this, "Xác nhận mật khẩu:");
-        if (confirmPass == null || !confirmPass.equals(password)) {
-            JOptionPane.showMessageDialog(this, 
-                "Mật khẩu xác nhận không khớp!", 
-                "Lỗi", 
-                JOptionPane.ERROR_MESSAGE);
-            return;
-        }
+    //     // Confirm password
+    //     String confirmPass = JOptionPane.showInputDialog(this, "Xác nhận mật khẩu:");
+    //     if (confirmPass == null || !confirmPass.equals(password)) {
+    //         JOptionPane.showMessageDialog(this, 
+    //             "Mật khẩu xác nhận không khớp!", 
+    //             "Lỗi", 
+    //             JOptionPane.ERROR_MESSAGE);
+    //         return;
+    //     }
         
-        controller.attemptRegister(username, password);
-    }
+    //     controller.attemptRegister(username, password);
+    // }
 }

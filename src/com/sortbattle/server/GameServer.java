@@ -172,6 +172,22 @@ public class GameServer {
     public void removeGameSession(String gameId) {
         activeGames.remove(gameId);
     }
+    /**
+     * CẬP NHẬT LẠI THÔNG TIN PLAYER TỪ DATABASE
+     */
+    public void refreshPlayerInfo(String username) {
+        ClientHandler handler = onlineClients.get(username);
+        if (handler != null) {
+            Player freshPlayer = dbManager.getPlayer(username);
+            if (freshPlayer != null) {
+                handler.getPlayer().setTotalScore(freshPlayer.getTotalScore());
+                handler.getPlayer().setGamesPlayed(freshPlayer.getGamesPlayed());
+                handler.getPlayer().setGamesWon(freshPlayer.getGamesWon());
+                System.out.println("✓ Refreshed player info for " + username + 
+                                " | Score: " + freshPlayer.getTotalScore());
+            }
+        }
+    }
 
     public static void main(String[] args) {
         GameServer server = new GameServer();

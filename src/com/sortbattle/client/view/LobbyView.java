@@ -92,13 +92,27 @@ public class LobbyView extends JFrame {
     }
     
     public void updateWelcomeMessage(String username) {
-        welcomeLabel.setText("Chào mừng, " + username + "!");
+        // Lấy thông tin player mới nhất từ model
+        Player currentPlayer = controller.getModel().getCurrentPlayer();
+        
+        if (currentPlayer != null) {
+            welcomeLabel.setText("<html><h2>Chào mừng, " + username + "!</h2>" +
+                                "<p>Tổng điểm: <b>" + currentPlayer.getTotalScore() + "</b> | " +
+                                "Trận thắng: <b>" + currentPlayer.getGamesWon() + "</b>/" + 
+                                currentPlayer.getGamesPlayed() + "</p></html>");
+        } else {
+            welcomeLabel.setText("<html><h2>Chào mừng, " + username + "!</h2></html>");
+        }
     }
     
-    public void updatePlayerList(List<Player> players) {
-        playerListModel.clear();
-        players.forEach(playerListModel::addElement);
+    public void updatePlayerList(List<Player> players, String currentPlayerUsername) {
+    playerListModel.clear();
+    for (Player player : players) {
+        if (!player.getUsername().equals(currentPlayerUsername)) {
+            playerListModel.addElement(player);
+        }
     }
+}
     
     public void showGameConfigDialog(String opponentName) {
         // Tạo dialog

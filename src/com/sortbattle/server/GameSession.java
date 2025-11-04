@@ -221,23 +221,28 @@ public class GameSession {
         int score2 = scores.get(p2.getUsername());
 
         String winner;
+        int p1ScoreChange = 0;
+        int p2ScoreChange = 0;
         if (score1 > score2) {
             winner = p1.getUsername();
-            p1.addScore(50);        // ← ĐÃ SỬA: Method tồn tại
-            p2.subtractScore(25);   // ← ĐÃ SỬA: Method tồn tại
+            p1ScoreChange = 50;
+            p2ScoreChange = -25;
         } else if (score2 > score1) {
             winner = p2.getUsername();
-            p2.addScore(50);
-            p1.subtractScore(25);
+            p2ScoreChange = 50;
+            p1ScoreChange = -25;
         } else { // Hòa
             winner = null;
-            p1.addScore(20);
-            p2.addScore(20);
+            p1ScoreChange = 20;
+            p2ScoreChange = 20;
         }
+        // Cập nhật điểm local (để hiển thị trên UI)
 
+        p1.addScore(p1ScoreChange);
+        p2.addScore(p2ScoreChange);
         // Cập nhật điểm vào database
-        server.updatePlayerScore(p1.getUsername(), score1, score1 > score2);  // ← SỬA: gameServer → server
-        server.updatePlayerScore(p2.getUsername(), score2, score2 > score1);  // ← SỬA: gameServer → server
+        server.updatePlayerScore(p1.getUsername(), p1ScoreChange, score1 > score2);  // ← SỬA: gameServer → server
+        server.updatePlayerScore(p2.getUsername(), p2ScoreChange, score2 > score1);  // ← SỬA: gameServer → server
         
         // Lưu lịch sử trận đấu
         int duration = config.getTimeLimitSeconds() - timeLeft;
@@ -290,9 +295,19 @@ public class GameSession {
                 resetForNewGame();
                 player2Handler.sendMessage(new Message(MessageType.REMATCH_ACCEPTED, player1Handler.getPlayer().getUsername()));
                 player1Handler.sendMessage(new Message(MessageType.REMATCH_ACCEPTED, player2Handler.getPlayer().getUsername()));
-            } else {
-                player1Handler.sendMessage(new Message(MessageType.REMATCH_REJECTED, null));
-                player2Handler.sendMessage(new Message(MessageType.REMATCH_REJECTED, null));
+            } else if(!p1WantsRematch && !p2WantsRematch) {
+                player1Handler.sendMessage(new Message(MessageType.REMATCH_REJECTED_SILENT, null));
+                player2Handler.sendMessage(new Message(MessageType.REMATCH_REJECTED_SILENT, null));
+                terminateSession();
+            }
+             else {
+                if(p1WantsRematch && !p2WantsRematch) {
+                    player1Handler.sendMessage(new Message(MessageType.REMATCH_REJECTED, player2Handler.getPlayer().getUsername()));
+                    player2Handler.sendMessage(new Message(MessageType.REMATCH_REJECTED_SILENT, null));
+                } else if(!p1WantsRematch && p2WantsRematch) {
+                    player2Handler.sendMessage(new Message(MessageType.REMATCH_REJECTED, player1Handler.getPlayer().getUsername()));
+                    player1Handler.sendMessage(new Message(MessageType.REMATCH_REJECTED_SILENT, null));
+                }
                 terminateSession();
             }
         }
@@ -317,7 +332,20 @@ public class GameSession {
         player2Handler.setGameSession(null);
         
         server.removeGameSession(this.gameId);
-        server.broadcastPlayerList();
+        // ========== DELAY 500MS ĐỂ CLIENT VỀ LOBBY TRƯỚC ==========
+    new Timer().schedule(new TimerTask() {
+        @Override
+        public void run() {
+            // Lấy thông tin mới nhất từ database
+            server.refreshPlayerInfo(player1Handler.getPlayer().getUsername());
+            server.refreshPlayerInfo(player2Handler.getPlayer().getUsername());
+            
+            // Broadcast danh sách người chơi với điểm mới
+            server.broadcastPlayerList();
+            
+            System.out.println("✓ Broadcasted player list with updated scores");
+        }
+    }, 500);  
     }
     
     public synchronized void handlePlayerDisconnect(ClientHandler disconnectedHandler) {

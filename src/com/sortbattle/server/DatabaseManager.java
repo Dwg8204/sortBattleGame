@@ -106,17 +106,39 @@ public class DatabaseManager {
      * Cập nhật điểm sau trận đấu
      */
     public void updatePlayerScore(String username, int scoreChange, boolean won) {
-        String sql = "UPDATE players SET total_score = total_score + ?, games_played = games_played + 1, " +
-                     "games_won = games_won + ? WHERE username = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, scoreChange);
-            stmt.setInt(2, won ? 1 : 0);
-            stmt.setString(3, username);
-            stmt.executeUpdate();
-            System.out.println(" Updated score for " + username + ": +" + scoreChange + " (won: " + won + ")");
-        } catch (SQLException e) {
-            System.err.println(" Update score error: " + e.getMessage());
+        // String sql = "UPDATE players SET total_score = total_score + ?, games_played = games_played + 1, " +
+        //              "games_won = games_won + ? WHERE username = ?";
+        // try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        //     stmt.setInt(1, scoreChange);
+        //     stmt.setInt(2, won ? 1 : 0);
+        //     stmt.setString(3, username);
+        //     stmt.executeUpdate();
+        //     System.out.println(" Updated score for " + username + ": +" + scoreChange + " (won: " + won + ")");
+        // } catch (SQLException e) {
+        //     System.err.println(" Update score error: " + e.getMessage());
+        // }
+        String sql = "UPDATE players SET " +
+                 "total_score = GREATEST(0, total_score + ?), " +  // Không cho âm
+                 "games_played = games_played + 1, " +
+                 "games_won = games_won + ? " +
+                 "WHERE username = ?";
+    
+    try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        stmt.setInt(1, scoreChange);      // +50, -25, hoặc +20
+        stmt.setInt(2, won ? 1 : 0);      // Tăng games_won nếu thắng
+        stmt.setString(3, username);
+        
+        int rowsAffected = stmt.executeUpdate();
+        
+        if (rowsAffected > 0) {
+            System.out.println("✓ Updated score for " + username + ": " + 
+                              (scoreChange > 0 ? "+" : "") + scoreChange + 
+                              " (won: " + won + ")");
         }
+    } catch (SQLException e) {
+        System.err.println("✗ Failed to update score for " + username + ": " + e.getMessage());
+        e.printStackTrace();
+    }
     }
     
     private void updateLastLogin(String username) {
