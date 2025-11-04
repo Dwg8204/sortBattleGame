@@ -14,12 +14,15 @@ import java.awt.*;
 import java.io.*;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class ClientController {
-    private static final String SERVER_ADDRESS = "172.11.78.98";
+    private static final String SERVER_ADDRESS = "192.144.22.102";
+    // 192.144.22.102
+    // 172.11.78.98
     private static final int SERVER_PORT = 12345;
 
     private Socket socket;
@@ -168,13 +171,117 @@ public class ClientController {
                     JOptionPane.ERROR_MESSAGE);
                 break;
                 
+            // Trong handleServerMessage, thay case LEADERBOARD_RESPONSE:
+                // Trong handleServerMessage
             case LEADERBOARD_RESPONSE:
-                showLeaderboard((List<String>) message.getPayload());
+                List<String> leaderboardData = (List<String>) message.getPayload();
+                System.out.println("Leaderboard data size: " + leaderboardData.size());
+                List<Player> players = new ArrayList<>();
+                for (String line : leaderboardData) {
+                    System.out.println("Parsing leaderboard line: " + line);
+                    try {
+                        // Format thực tế: "#1 - player1: 97 điểm | 6/12 thắng (50.0%)"
+                        String[] parts = line.split(" - ", 2);  // Split chỉ 1 lần để có 2 phần
+                        if (parts.length == 2) {
+                            String rank = parts[0].trim();  // "#1"
+                            String info = parts[1].trim();  // "player1: 97 điểm | 6/12 thắng (50.0%)"
+                            
+                            // Parse info: "player1: 97 điểm | 6/12 thắng (50.0%)"
+                            String[] infoParts = info.split("\\|");  // Split theo "|"
+                            if (infoParts.length >= 2) {
+                                String usernameAndScore = infoParts[0].trim();  // "player1: 97 điểm"
+                                String winsAndRate = infoParts[1].trim();  // "6/12 thắng (50.0%)"
+                                
+                                // Tách username và score từ "player1: 97 điểm"
+                                int colonIndex = usernameAndScore.indexOf(": ");
+                                if (colonIndex != -1) {
+                                    String username = usernameAndScore.substring(0, colonIndex).trim();
+                                    String scoreStr = usernameAndScore.substring(colonIndex + 2).replace(" điểm", "").trim();
+                                    int totalScore = Integer.parseInt(scoreStr);
+                                    
+                                    // Tách wins/total từ "6/12 thắng (50.0%)"
+                                    String[] winParts = winsAndRate.split(" ")[0].split("/");  // "6/12" → ["6", "12"]
+                                    if (winParts.length == 2) {
+                                        int wins = Integer.parseInt(winParts[0]);
+                                        int total = Integer.parseInt(winParts[1]);
+                                        int losses = total - wins;
+                                        
+                                        Player p = new Player(username);
+                                        p.setTotalScore(totalScore);
+                                        p.setGamesWon(wins);
+                                        p.setGamesPlayed(total);
+                                        players.add(p);
+                                    } else {
+                                        System.err.println("Invalid wins/total in line: " + line);
+                                    }
+                                } else {
+                                    System.err.println("Invalid username/score in line: " + line);
+                                }
+                            } else {
+                                System.err.println("Invalid info parts in line: " + line);
+                            }
+                        } else {
+                            System.err.println("Invalid main parts in line: " + line);
+                        }
+                    } catch (NumberFormatException e) {
+                        System.err.println("Parse error (number) in line: " + line + " - " + e.getMessage());
+                    } catch (Exception e) {
+                        System.err.println("Unexpected parse error in line: " + line + " - " + e.getMessage());
+                    }
+                }
+                if (lobbyView != null) {
+                    if (players.isEmpty()) {
+                        JOptionPane.showMessageDialog(lobbyView, "Chưa có dữ liệu bảng xếp hạng", "Bảng xếp hạng", JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        lobbyView.showLeaderboardDialog(players);
+                    }
+                }
                 break;
 
             case HISTORY_RESPONSE:
-                showHistory((List<String>) message.getPayload());
+                List<String> historyData = (List<String>) message.getPayload();
+                System.out.println("History data size: " + historyData.size());
+                List<String[]> historyRows = new ArrayList<>();
+                for (String line : historyData) {
+                    System.out.println("Parsing history line: " + line);
+                    try {
+                        // Format thực tế: "player2 vs player1 | NUMBER | 2-2 | Winner: Draw | 2025-11-05 00:23:17.0"
+                        String[] row = line.split(" \\| ");  // Split theo " | "
+                        if (row.length >= 5) {  // Đảm bảo ít nhất 5 phần
+                            // Trim từng phần
+                            for (int i = 0; i < row.length; i++) {
+                                row[i] = row[i].trim();
+                            }
+                            // Map thành format mong đợi: [Opponent, Result, Time, Type]
+                            // Thực tế: [0]=Opponent (e.g., "player2 vs player1"), [1]=Type, [2]=Score, [3]=Winner, [4]=Time
+                            String opponent = row[0];  // "player2 vs player1"
+                            String type = row[1];  // "NUMBER" or "WORD"
+                            String score = row[2];  // "2-2"
+                            String result = row[3];  // "Winner: Draw"
+                            String time = row[4];  // "2025-11-05 00:23:17.0"
+                            
+                            // Tạo row theo format cũ: [Opponent, Result, Time, Type]
+                            String[] formattedRow = {opponent, result, time, type};
+                            historyRows.add(formattedRow);
+                        } else {
+                            System.err.println("Invalid history row length in line: " + line);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Parse error in history line: " + line + " - " + e.getMessage());
+                    }
+                }
+                if (lobbyView != null) {
+                    if (historyRows.isEmpty()) {
+                        JOptionPane.showMessageDialog(lobbyView, "Bạn chưa có lịch sử trận đấu", "Lịch sử", JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        lobbyView.showMatchHistoryDialog(historyRows);
+                    }
+                }
                 break;
+
+
+
+
                 
             case PLAYER_LIST_UPDATE:
                 model.setOnlinePlayers((List<Player>) message.getPayload());
@@ -421,48 +528,48 @@ public class ClientController {
     /**
      * HIỂN THỊ BẢNG XẾP HẠNG
      */
-    private void showLeaderboard(List<String> leaderboard) {
-        Component parent = lobbyView != null ? lobbyView : gameView;
+    // private void showLeaderboard(List<String> leaderboard) {
+    //     Component parent = lobbyView != null ? lobbyView : gameView;
         
-        if (leaderboard.isEmpty()) {
-            JOptionPane.showMessageDialog(parent, 
-                "Chưa có dữ liệu bảng xếp hạng", 
-                "Bảng xếp hạng", 
-                JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
+    //     if (leaderboard.isEmpty()) {
+    //         JOptionPane.showMessageDialog(parent, 
+    //             "Chưa có dữ liệu bảng xếp hạng", 
+    //             "Bảng xếp hạng", 
+    //             JOptionPane.INFORMATION_MESSAGE);
+    //         return;
+    //     }
         
-        String text = "=== TOP 10 PLAYERS ===\n\n" + String.join("\n", leaderboard);
-        JTextArea textArea = new JTextArea(text);
-        textArea.setEditable(false);
-        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        JScrollPane scrollPane = new JScrollPane(textArea);
-        scrollPane.setPreferredSize(new Dimension(500, 300));
-        JOptionPane.showMessageDialog(parent, scrollPane, "Bảng xếp hạng", JOptionPane.INFORMATION_MESSAGE);
-    }
+    //     String text = "=== TOP 10 PLAYERS ===\n\n" + String.join("\n", leaderboard);
+    //     JTextArea textArea = new JTextArea(text);
+    //     textArea.setEditable(false);
+    //     textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+    //     JScrollPane scrollPane = new JScrollPane(textArea);
+    //     scrollPane.setPreferredSize(new Dimension(500, 300));
+    //     JOptionPane.showMessageDialog(parent, scrollPane, "Bảng xếp hạng", JOptionPane.INFORMATION_MESSAGE);
+    // }
 
     /**
      * HIỂN THỊ LỊCH SỬ
      */
-    private void showHistory(List<String> history) {
-        Component parent = lobbyView != null ? lobbyView : gameView;
+    // private void showHistory(List<String> history) {
+    //     Component parent = lobbyView != null ? lobbyView : gameView;
         
-        if (history.isEmpty()) {
-            JOptionPane.showMessageDialog(parent, 
-                "Bạn chưa có lịch sử trận đấu", 
-                "Lịch sử", 
-                JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
+    //     if (history.isEmpty()) {
+    //         JOptionPane.showMessageDialog(parent, 
+    //             "Bạn chưa có lịch sử trận đấu", 
+    //             "Lịch sử", 
+    //             JOptionPane.INFORMATION_MESSAGE);
+    //         return;
+    //     }
         
-        String text = "=== LỊCH SỬ TRẬN ĐẤU ===\n\n" + String.join("\n\n", history);
-        JTextArea textArea = new JTextArea(text);
-        textArea.setEditable(false);
-        textArea.setFont(new Font("Monospaced", Font.PLAIN, 11));
-        JScrollPane scrollPane = new JScrollPane(textArea);
-        scrollPane.setPreferredSize(new Dimension(600, 350));
-        JOptionPane.showMessageDialog(parent, scrollPane, "Lịch sử trận đấu", JOptionPane.INFORMATION_MESSAGE);
-    }
+    //     String text = "=== LỊCH SỬ TRẬN ĐẤU ===\n\n" + String.join("\n\n", history);
+    //     JTextArea textArea = new JTextArea(text);
+    //     textArea.setEditable(false);
+    //     textArea.setFont(new Font("Monospaced", Font.PLAIN, 11));
+    //     JScrollPane scrollPane = new JScrollPane(textArea);
+    //     scrollPane.setPreferredSize(new Dimension(600, 350));
+    //     JOptionPane.showMessageDialog(parent, scrollPane, "Lịch sử trận đấu", JOptionPane.INFORMATION_MESSAGE);
+    // }
 
     /**
      * GETTER MODEL

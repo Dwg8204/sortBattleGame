@@ -1,20 +1,20 @@
-
 package com.sortbattle.server;
 
 import com.sortbattle.common.Player;
 import com.sortbattle.common.PasswordUtil;
 
 import java.sql.*;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DatabaseManager {
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/sortbattle_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/sortbattle_db?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true";
     private static final String DB_USER = "root";
-// <<<<<<< Updated upstream
-    // private static final String DB_PASSWORD = ""; 
     private static final String DB_PASSWORD = "123456789"; // THAY BẰNG PASSWORD MYSQL CỦA BẠN
-// >>>>>>> Stashed changes
     
     private Connection connection;
     
@@ -163,39 +163,52 @@ public class DatabaseManager {
      * Lấy lịch sử trận đấu
      */
     public List<String> getMatchHistory(String username, int limit) {
-        List<String> history = new ArrayList<>();
-        String sql = "SELECT p1.username as player1, p2.username as player2, w.username as winner, " +
-                     "player1_score, player2_score, game_mode, played_at " +
-                     "FROM match_history m " +
-                     "JOIN players p1 ON m.player1_id = p1.id " +
-                     "JOIN players p2 ON m.player2_id = p2.id " +
-                     "LEFT JOIN players w ON m.winner_id = w.id " +
-                     "WHERE p1.username = ? OR p2.username = ? " +
-                     "ORDER BY played_at DESC LIMIT ?";
+    List<String> history = new ArrayList<>();
+    String sql = "SELECT p1.username as player1, p2.username as player2, w.username as winner, " +
+                 "player1_score, player2_score, game_mode, played_at " +
+                 "FROM match_history m " +
+                 "JOIN players p1 ON m.player1_id = p1.id " +
+                 "JOIN players p2 ON m.player2_id = p2.id " +
+                 "LEFT JOIN players w ON m.winner_id = w.id " +
+                 "WHERE p1.username = ? OR p2.username = ? " +
+                 "ORDER BY played_at DESC LIMIT ?";
+    
+    try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        stmt.setString(1, username);
+        stmt.setString(2, username);
+        stmt.setInt(3, limit);
+        ResultSet rs = stmt.executeQuery();
+
+        SimpleDateFormat outputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setString(1, username);
-            stmt.setString(2, username);
-            stmt.setInt(3, limit);
-            ResultSet rs = stmt.executeQuery();
-            
-            while (rs.next()) {
-                String record = String.format("%s vs %s | %s | %d-%d | Winner: %s | %s",
-                    rs.getString("player1"),
-                    rs.getString("player2"),
-                    rs.getString("game_mode"),
-                    rs.getInt("player1_score"),
-                    rs.getInt("player2_score"),
-                    rs.getString("winner") != null ? rs.getString("winner") : "Draw",
-                    rs.getTimestamp("played_at")
-                );
-                history.add(record);
-            }
-        } catch (SQLException e) {
-            System.err.println("✗ Get match history error: " + e.getMessage());
+        while (rs.next()) {
+            String player1 = rs.getString("player1");
+            String player2 = rs.getString("player2");
+            String winner = rs.getString("winner");
+            int p1Score = rs.getInt("player1_score");
+            int p2Score = rs.getInt("player2_score");
+            String gameMode = rs.getString("game_mode");
+            Timestamp playedAt = rs.getTimestamp("played_at");
+
+            String timeStr = playedAt != null ? outputFormat.format(playedAt) : "";
+
+            String record = String.format("%s vs %s | %s | %d-%d | Winner: %s | %s",
+                player1,
+                player2,
+                gameMode,
+                p1Score,
+                p2Score,
+                winner != null ? winner : "Draw",
+                timeStr  // Không còn thêm ".0"!
+            );
+
+            history.add(record);
         }
-        return history;
+    } catch (SQLException e) {
+        System.err.println("✗ Get match history error: " + e.getMessage());
     }
+    return history;
+}
     
     /**
      * Lấy bảng xếp hạng

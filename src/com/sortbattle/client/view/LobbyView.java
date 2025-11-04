@@ -14,7 +14,12 @@ import com.sortbattle.common.GameConfig;
 import com.sortbattle.common.Player;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+
 import java.awt.*;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.List;
 
 public class LobbyView extends JFrame {
@@ -70,19 +75,19 @@ public class LobbyView extends JFrame {
             }
         });
         bottomPanel.add(challengeButton);
-        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
 
         
         JButton leaderboardButton = new JButton("🏆 Bảng xếp hạng");
-leaderboardButton.setFont(new Font("Arial", Font.BOLD, 12));
-leaderboardButton.addActionListener(e -> controller.requestLeaderboard());
-bottomPanel.add(leaderboardButton);
+        leaderboardButton.setFont(new Font("Arial", Font.BOLD, 12));
+        leaderboardButton.addActionListener(e -> controller.requestLeaderboard());
+        bottomPanel.add(leaderboardButton);
 
-JButton historyButton = new JButton("📜 Lịch sử");
-historyButton.setFont(new Font("Arial", Font.BOLD, 12));
-historyButton.addActionListener(e -> controller.requestHistory());
-bottomPanel.add(historyButton);
+        JButton historyButton = new JButton("📜 Lịch sử");
+        historyButton.setFont(new Font("Arial", Font.BOLD, 12));
+        historyButton.addActionListener(e -> controller.requestHistory());
+        bottomPanel.add(historyButton);
         
+        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
         add(mainPanel);
     }
     
@@ -116,13 +121,13 @@ bottomPanel.add(historyButton);
         JComboBox<Integer> countCombo = new JComboBox<>(new Integer[]{10, 20, 30, 40, 50, 60, 80, 100});
         countCombo.setSelectedItem(30); // Default for words
         typeCombo.addActionListener(e -> {
-             if ("Số".equals(typeCombo.getSelectedItem())) {
-                 countCombo.setModel(new DefaultComboBoxModel<>(new Integer[]{20, 40, 60, 80, 100}));
-                 countCombo.setSelectedItem(60);
-             } else {
-                 countCombo.setModel(new DefaultComboBoxModel<>(new Integer[]{10, 20, 30, 40, 50}));
-                 countCombo.setSelectedItem(30);
-             }
+            if ("Số".equals(typeCombo.getSelectedItem())) {
+                countCombo.setModel(new DefaultComboBoxModel<>(new Integer[]{20, 40, 60, 80, 100}));
+                countCombo.setSelectedItem(60);
+            } else {
+                countCombo.setModel(new DefaultComboBoxModel<>(new Integer[]{10, 20, 30, 40, 50}));
+                countCombo.setSelectedItem(30);
+            }
         });
         configDialog.add(countCombo);
 
@@ -151,6 +156,180 @@ bottomPanel.add(historyButton);
 
         configDialog.setVisible(true);
     }
+
+        // 🏆 Hiển thị bảng xếp hạng
+    public void showLeaderboardDialog(List<Player> leaderboard) {
+        JDialog dialog = new JDialog(this, "🏆 Bảng xếp hạng", true);
+        dialog.setSize(550, 420);
+        dialog.setLocationRelativeTo(this);
+
+        JLabel title = new JLabel("TOP NGƯỜI CHƠI", SwingConstants.CENTER);
+        title.setFont(new Font("Arial", Font.BOLD, 20));
+        title.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
+
+        String[] columns = {"Hạng", "Tên người chơi", "Thắng", "Thua", "Tỷ lệ thắng (%)", "Điểm số"};
+        DefaultTableModel model = new DefaultTableModel(columns, 0);
+        int rank = 1;
+        for (Player p : leaderboard) {
+            int wins = p.getGamesWon();  // Thay p.getWins()
+            int losses = p.getGamesPlayed() - wins;  // Tính losses động
+            int total = p.getGamesPlayed();
+            double rate = total > 0 ? (wins * 100.0 / total) : 0;
+            model.addRow(new Object[]{rank++, p.getUsername(), wins, losses, String.format("%.1f", rate), p.getTotalScore()});
+        }
+
+        JTable table = new JTable(model);
+        table.setFont(new Font("Arial", Font.PLAIN, 14));
+        table.setRowHeight(28);
+        table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 14));
+        table.setAutoCreateRowSorter(true);
+        table.setDefaultEditor(Object.class, null);
+
+        // Renderer: căn giữa và xen kẽ màu
+        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
+        for (int i = 0; i < table.getColumnCount(); i++)
+            table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
+
+        table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                                                           boolean isSelected, boolean hasFocus,
+                                                           int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (!isSelected) {
+                    // Hạng 1: nền vàng nhạt
+                    if (row == 0) {
+                        c.setBackground(new Color(255, 255, 204)); // Vàng nhạt
+                        // setForeground(Color.BLACK);
+                    } else {
+                        c.setBackground(row % 2 == 0 ? new Color(245, 250, 255) : Color.WHITE);
+                        // setForeground(Color.BLACK);
+                    }
+                    // Cột tỷ lệ thắng: màu chữ dựa trên giá trị
+                    if (column == 4) {
+                        try {
+                            String strValue = value.toString().replace("%", "").trim(); // Bỏ "%" nếu có
+                            double rate = Double.parseDouble(strValue);
+                            if (rate >= 70) {
+                                setForeground(Color.GREEN.darker());
+                            } else if (rate >= 50) {
+                                setForeground(Color.ORANGE);
+                            } else {
+                                setForeground(Color.RED);
+                            }
+                        } catch (NumberFormatException e) {
+                            setForeground(Color.BLACK); // Mặc định nếu parse fail
+                        }
+                    } else {
+                        setForeground(Color.BLACK); // Màu mặc định cho cột khác
+                    }
+                }
+                return c;
+            }
+        });
+
+        JScrollPane scroll = new JScrollPane(table);
+        JButton closeBtn = new JButton("Đóng");
+        closeBtn.addActionListener(e -> dialog.dispose());
+
+        JPanel bottom = new JPanel();
+        bottom.add(closeBtn);
+
+        dialog.setLayout(new BorderLayout());
+        dialog.add(title, BorderLayout.NORTH);
+        dialog.add(scroll, BorderLayout.CENTER);
+        dialog.add(bottom, BorderLayout.SOUTH);
+        dialog.setVisible(true);
+    }
+
+    // 📜 Hiển thị lịch sử đấu
+    public void showMatchHistoryDialog(List<String[]> history) {
+        JDialog dialog = new JDialog(this, "📜 Lịch sử đấu", true);
+        dialog.setSize(600, 420);
+        dialog.setLocationRelativeTo(this);
+
+        JLabel title = new JLabel("LỊCH SỬ TRẬN ĐẤU", SwingConstants.CENTER);
+        title.setFont(new Font("Arial", Font.BOLD, 20));
+        title.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
+
+        String[] columns = {"Đối thủ", "Kết quả", "Thời gian", "Loại nội dung"};
+        DefaultTableModel model = new DefaultTableModel(columns, 0);
+        for (String[] row : history) {
+            String opponent = row[0];
+            String result = row[1];
+            String time = row[2];
+            String type = row[3];
+            
+            // SỬA: Format thời gian từ "2025-11-05 00:23:17.0" thành "05/11/2025 00:23"
+            try {
+                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                SimpleDateFormat outputFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+                java.util.Date date = inputFormat.parse(time);
+                time = outputFormat.format(date);
+            } catch (ParseException e) {
+                // Nếu parse fail, giữ nguyên time gốc
+                System.err.println("Failed to parse time: " + time);
+            }
+            
+            model.addRow(new Object[]{opponent, result, time, type});
+        }
+
+        JTable table = new JTable(model);
+        table.setFont(new Font("Arial", Font.PLAIN, 14));
+        table.setRowHeight(26);
+        table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 14));
+        table.setDefaultEditor(Object.class, null);
+        table.setAutoCreateRowSorter(true);
+
+
+        // Renderer: màu xen kẽ, với màu đặc biệt cho kết quả
+        table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                                                           boolean isSelected, boolean hasFocus,
+                                                           int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setHorizontalAlignment(SwingConstants.CENTER);
+                if (!isSelected) {
+                    // Debug: In value và column (bỏ sau khi test)
+                    System.out.println("History - Row: " + row + ", Column: " + column + ", Value: " + value);
+
+                    c.setBackground(row % 2 == 0 ? new Color(250, 250, 250) : new Color(235, 240, 245));
+
+                    // Cột kết quả: màu chữ dựa trên thắng/thua (index 1)
+                    if (column == 1) {
+                        String strValue = value.toString();
+                        if ("Winner: player1".equals(strValue) || strValue.contains("player1")) { // Giả định "Winner: player1" là thắng
+                            setForeground(Color.GREEN.darker());
+                        } else if ("Winner: Draw".equals(strValue)) {
+                            setForeground(Color.ORANGE); // Hòa
+                        } else {
+                            setForeground(Color.RED); // Thua
+                        }
+                    } else {
+                        setForeground(Color.BLACK); // Màu mặc định cho cột khác
+                    }
+                }
+                return c;
+            }
+        });
+
+
+        JScrollPane scroll = new JScrollPane(table);
+        JButton closeBtn = new JButton("Đóng");
+        closeBtn.addActionListener(e -> dialog.dispose());
+
+        JPanel bottom = new JPanel();
+        bottom.add(closeBtn);
+
+        dialog.setLayout(new BorderLayout());
+        dialog.add(title, BorderLayout.NORTH);
+        dialog.add(scroll, BorderLayout.CENTER);
+        dialog.add(bottom, BorderLayout.SOUTH);
+        dialog.setVisible(true);
+    }
+    
     
     // Custom renderer class
     private static class PlayerListRenderer extends DefaultListCellRenderer {
