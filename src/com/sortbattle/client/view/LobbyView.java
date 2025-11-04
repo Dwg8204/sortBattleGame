@@ -157,7 +157,7 @@ public class LobbyView extends JFrame {
         configDialog.setVisible(true);
     }
 
-        // 🏆 Hiển thị bảng xếp hạng
+    // 🏆 Hiển thị bảng xếp hạng
     public void showLeaderboardDialog(List<Player> leaderboard) {
         JDialog dialog = new JDialog(this, "🏆 Bảng xếp hạng", true);
         dialog.setSize(550, 420);
@@ -185,32 +185,30 @@ public class LobbyView extends JFrame {
         table.setAutoCreateRowSorter(true);
         table.setDefaultEditor(Object.class, null);
 
-        // Renderer: căn giữa và xen kẽ màu
-        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-        centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
-        for (int i = 0; i < table.getColumnCount(); i++)
-            table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
-
+        // Renderer: căn giữa và màu sắc tùy chỉnh (loại bỏ setCellRenderer để tránh xung đột)
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value,
                                                            boolean isSelected, boolean hasFocus,
                                                            int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setHorizontalAlignment(SwingConstants.CENTER); // Căn giữa cho tất cả
                 if (!isSelected) {
                     // Hạng 1: nền vàng nhạt
                     if (row == 0) {
                         c.setBackground(new Color(255, 255, 204)); // Vàng nhạt
-                        // setForeground(Color.BLACK);
+                        setForeground(Color.BLACK);
                     } else {
                         c.setBackground(row % 2 == 0 ? new Color(245, 250, 255) : Color.WHITE);
-                        // setForeground(Color.BLACK);
+                        setForeground(Color.BLACK);
                     }
-                    // Cột tỷ lệ thắng: màu chữ dựa trên giá trị
-                    if (column == 4) {
+                    // Cột tỷ lệ thắng: màu chữ dựa trên giá trị (ghi đè màu mặc định)
+                    if (column == 4) { // Cột "Tỷ lệ thắng (%)"
                         try {
-                            String strValue = value.toString().replace("%", "").trim(); // Bỏ "%" nếu có
+                            String strValue = value.toString().replace("%", "").trim(); // Bỏ "%" nếu có (dù data không có)
                             double rate = Double.parseDouble(strValue);
+                            // Debug: In rate để kiểm tra (xóa sau khi test)
+                            System.out.println("Row " + row + ", Rate: " + rate);
                             if (rate >= 70) {
                                 setForeground(Color.GREEN.darker());
                             } else if (rate >= 50) {
@@ -220,10 +218,9 @@ public class LobbyView extends JFrame {
                             }
                         } catch (NumberFormatException e) {
                             setForeground(Color.BLACK); // Mặc định nếu parse fail
+                            System.out.println("Parse fail for value: " + value);
                         }
-                    } else {
-                        setForeground(Color.BLACK); // Màu mặc định cho cột khác
-                    }
+                    } // Không cần else ở đây, vì đã setForeground(Color.BLACK) ở trên cho cột khác
                 }
                 return c;
             }
@@ -242,7 +239,6 @@ public class LobbyView extends JFrame {
         dialog.add(bottom, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
-
     // 📜 Hiển thị lịch sử đấu
     public void showMatchHistoryDialog(List<String[]> history) {
         JDialog dialog = new JDialog(this, "📜 Lịch sử đấu", true);
