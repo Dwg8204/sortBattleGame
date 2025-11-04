@@ -35,6 +35,7 @@ public enum MessageType {
     REMATCH_RESPONSE,
     REMATCH_ACCEPTED,
     REMATCH_REJECTED,
+    REMATCH_REJECTED_SILENT,
     
     // Leaderboard & History - THÊM MỚI
     LEADERBOARD_REQUEST,

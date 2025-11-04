@@ -8,7 +8,9 @@ import com.sortbattle.common.GameConfig;
 import com.sortbattle.common.Message;
 import com.sortbattle.common.MessageType;
 import com.sortbattle.common.Player;
-
+import java.util.Timer;
+import java.util.TimerTask;
+import javax.swing.SwingUtilities;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
@@ -191,10 +193,28 @@ public class ClientController {
                 
             case PLAYER_LIST_UPDATE:
                 model.setOnlinePlayers((List<Player>) message.getPayload());
+                if (model.getCurrentPlayer() != null) {
+                    for (Player p : model.getOnlinePlayers()) {
+                        if (p.getUsername().equals(model.getCurrentPlayer().getUsername())) {
+                            // Cập nhật điểm từ danh sách mới
+                            model.getCurrentPlayer().setTotalScore(p.getTotalScore());
+                            model.getCurrentPlayer().setGamesPlayed(p.getGamesPlayed());
+                            model.getCurrentPlayer().setGamesWon(p.getGamesWon());
+                            
+                            System.out.println("✓ Updated current player score: " + p.getTotalScore());
+                            break;
+                        }
+                    }
+                }
                 // Cập nhật luôn nếu lobbyView đã tồn tại
                 if (lobbyView != null && lobbyView.isVisible()) {
                     lobbyView.updatePlayerList(model.getOnlinePlayers(), model.getCurrentPlayer().getUsername());
+                    if (model.getCurrentPlayer() != null) {
+                        lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
+                    }
                 }
+                // CẬP NHẬT THÔNG TIN BẢN THÂN (nếu có trong danh sách)
+                
                 // Nếu chưa có lobbyView, danh sách đã lưu trong model
                 // sẽ được hiển thị khi tạo lobbyView ở LOGIN_SUCCESS
                 break;
@@ -252,6 +272,9 @@ public class ClientController {
                 break;
                 
             case REMATCH_ACCEPTED:
+                if (gameView != null) {
+                        gameView.hideWaitingDialog();
+                    }
                 JOptionPane.showMessageDialog(gameView, 
                     "Đối thủ đồng ý chơi lại!", 
                     "Rematch", 
@@ -262,6 +285,9 @@ public class ClientController {
                 break;
                 
             case REMATCH_REJECTED:
+                if (gameView != null) {
+                    gameView.hideWaitingDialog();  
+                }
                 JOptionPane.showMessageDialog(lobbyView, 
                     "Đối thủ từ chối chơi lại.", 
                     "Rematch", 
@@ -272,8 +298,40 @@ public class ClientController {
                 if (lobbyView != null) {
                     lobbyView.setVisible(true);
                 }
+                // Đợi 500ms để nhận PLAYER_LIST_UPDATE từ server, rồi cập nhật UI
+    new Timer().schedule(new TimerTask() {
+        @Override
+        public void run() {
+            SwingUtilities.invokeLater(() -> {
+                if (lobbyView != null && model.getCurrentPlayer() != null) {
+                    lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
+                }
+            });
+        }
+    }, 500);
                 break;
-                
+            case REMATCH_REJECTED_SILENT:
+                // Không hiển thị thông báo, tự động về lobby
+                if (gameView != null) {
+                    gameView.hideWaitingDialog();
+                    gameView.dispose();
+                }
+                if (lobbyView != null) {
+                    lobbyView.setVisible(true);
+                }
+                // Đợi 500ms để nhận PLAYER_LIST_UPDATE từ server, rồi cập nhật UI
+                new Timer().schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        SwingUtilities.invokeLater(() -> {
+                            if (lobbyView != null && model.getCurrentPlayer() != null) {
+                                lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
+                            }
+                        });
+                    }
+                }, 500);
+                break;
+                            
             default:
                 System.out.println("⚠ Unknown message type: " + message.getType());
         }
@@ -336,10 +394,11 @@ public class ClientController {
             sendMessage(new Message(MessageType.REMATCH_RESPONSE, wantsRematch));
 
             if (!wantsRematch) {
-                 gameView.dispose();
-                 if (lobbyView != null) {
-                     lobbyView.setVisible(true);
-                 }
+                //  gameView.dispose();
+                //  if (lobbyView != null) {
+                //      lobbyView.setVisible(true);
+                //  }
+                gameView.showWaitingForRematch();
             } else {
                 gameView.showWaitingForRematch();
             }

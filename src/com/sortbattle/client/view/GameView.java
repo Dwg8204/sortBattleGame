@@ -30,7 +30,7 @@ public class GameView extends JFrame {
     private final JLabel sortOrderLabel;
     private final JPanel itemsPanel;
     private final Map<String, JButton> itemButtons = new HashMap<>();
-
+    private JDialog waitingDialog;
     public GameView(ClientController controller) {
         this.controller = controller;
 
@@ -234,9 +234,42 @@ public class GameView extends JFrame {
     
     public void showWaitingForRematch() {
         // Vô hiệu hóa cửa sổ game và hiển thị thông báo chờ
-        for(JButton button : itemButtons.values()) {
-            button.setEnabled(false);
-        }
-        JOptionPane.showMessageDialog(this, "Đã gửi yêu cầu chơi lại. Vui lòng chờ đối thủ...", "Chờ", JOptionPane.INFORMATION_MESSAGE);
+        // Đóng dialog cũ (nếu có)
+    if (waitingDialog != null && waitingDialog.isVisible()) {
+        waitingDialog.dispose();
     }
+    
+    // Tạo dialog NON-MODAL (không block thread)
+    waitingDialog = new JDialog(this, "Chờ đối thủ", false);  // ← false = non-modal
+    waitingDialog.setLayout(new BorderLayout(10, 10));
+    waitingDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+    
+    // Nội dung
+    JPanel contentPanel = new JPanel(new BorderLayout(10, 10));
+    contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+    
+    JLabel messageLabel = new JLabel("<html><center>Đã gửi yêu cầu chơi lại.<br>Vui lòng chờ đối thủ phản hồi...</center></html>", JLabel.CENTER);
+    messageLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+    contentPanel.add(messageLabel, BorderLayout.CENTER);
+    
+    // Loading indicator (optional)
+    JProgressBar progressBar = new JProgressBar();
+    progressBar.setIndeterminate(true);
+    contentPanel.add(progressBar, BorderLayout.SOUTH);
+    
+    waitingDialog.add(contentPanel);
+    waitingDialog.pack();
+    waitingDialog.setSize(350, 150);
+    waitingDialog.setLocationRelativeTo(this);
+    waitingDialog.setVisible(true);
+    }
+    /**
+ * ĐÓNG WAITING DIALOG (THÊM METHOD MỚI)
+ */
+public void hideWaitingDialog() {
+    if (waitingDialog != null && waitingDialog.isVisible()) {
+        waitingDialog.dispose();
+        waitingDialog = null;
+    }
+}
 }
