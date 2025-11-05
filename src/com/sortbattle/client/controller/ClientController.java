@@ -255,38 +255,40 @@ public class ClientController {
 
             case HISTORY_RESPONSE:
                 List<String> historyData = (List<String>) message.getPayload();
-                System.out.println("History data size: " + historyData.size());
                 List<String[]> historyRows = new ArrayList<>();
-                for (String line : historyData) {
-                    System.out.println("Parsing history line: " + line);
-                    try {
-                        // Format thực tế: "player2 vs player1 | NUMBER | 2-2 | Winner: Draw |
-                        // 2025-11-05 00:23:17.0"
-                        String[] row = line.split(" \\| "); // Split theo " | "
-                        if (row.length >= 5) { // Đảm bảo ít nhất 5 phần
-                            // Trim từng phần
-                            for (int i = 0; i < row.length; i++) {
-                                row[i] = row[i].trim();
-                            }
-                            // Map thành format mong đợi: [Opponent, Result, Time, Type]
-                            // Thực tế: [0]=Opponent (e.g., "player2 vs player1"), [1]=Type, [2]=Score,
-                            // [3]=Winner, [4]=Time
-                            String opponent = row[0]; // "player2 vs player1"
-                            String type = row[1]; // "NUMBER" or "WORD"
-                            String score = row[2]; // "2-2"
-                            String result = row[3]; // "Winner: Draw"
-                            String time = row[4]; // "2025-11-05 00:23:17.0"
+                String currentUsername = model.getCurrentPlayer().getUsername(); // Lấy tên người chơi hiện tại
 
-                            // Tạo row theo format cũ: [Opponent, Result, Time, Type]
-                            String[] formattedRow = { opponent, result, time, type };
+                for (String line : historyData) {
+                    try {
+                        String[] row = line.split(" \\| ");
+                        if (row.length >= 5) {
+                            for (int i = 0; i < row.length; i++) row[i] = row[i].trim();
+
+                            String opponent = row[0]; // "player2 vs player1"
+                            String type = row[1];     // "NUMBER" or "WORD"
+                            String score = row[2];    // "2-2"
+                            String winnerInfo = row[3]; // "Winner: Draw" hoặc "Winner: player1"
+                            String time = row[4]; 
+
+                            // Map kết quả Win/Lose/Draw dựa vào current player
+                            String result = "Draw"; // mặc định
+                            if (!winnerInfo.toLowerCase().contains("draw")) {
+                                String winnerName = winnerInfo.substring("Winner: ".length()).trim();
+                                if (winnerName.equals(currentUsername)) {
+                                    result = "Win";
+                                } else {
+                                    result = "Lose";
+                                }
+                            }
+
+                            String[] formattedRow = { opponent, result, score, time, type };
                             historyRows.add(formattedRow);
-                        } else {
-                            System.err.println("Invalid history row length in line: " + line);
                         }
                     } catch (Exception e) {
                         System.err.println("Parse error in history line: " + line + " - " + e.getMessage());
                     }
                 }
+
                 if (lobbyView != null) {
                     if (historyRows.isEmpty()) {
                         JOptionPane.showMessageDialog(lobbyView, "Bạn chưa có lịch sử trận đấu", "Lịch sử",
@@ -296,6 +298,7 @@ public class ClientController {
                     }
                 }
                 break;
+
 
             case PLAYER_LIST_UPDATE:
                 model.setOnlinePlayers((List<Player>) message.getPayload());

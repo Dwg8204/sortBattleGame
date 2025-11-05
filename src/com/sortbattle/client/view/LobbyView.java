@@ -384,7 +384,7 @@ public class LobbyView extends JFrame {
         title.setForeground(new Color(30, 60, 90));
         title.setBorder(BorderFactory.createEmptyBorder(15, 0, 10, 0));
 
-        String[] columns = { "Đối thủ", "Kết quả", "Thời gian", "Loại nội dung" };
+        String[] columns = { "Đối thủ", "Kết quả", "Điểm", "Thời gian", "Loại nội dung" };
         DefaultTableModel model = new DefaultTableModel(columns, 0);
 
         SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -394,9 +394,9 @@ public class LobbyView extends JFrame {
         for (String[] row : history) {
             String opponent = row[0];
             String result = row[1];
-            String time = row[2];
-            String type = row[3];
-
+            String score = row.length > 2 ? row[2] : "";
+            String time = row.length > 3 ? row[3] : "";
+            String type = row.length > 4 ? row[4] : "";
             try {
                 Date date;
                 try {
@@ -408,7 +408,7 @@ public class LobbyView extends JFrame {
             } catch (Exception ex) {
             }
 
-            model.addRow(new Object[] { opponent, result, time, type });
+            model.addRow(new Object[] { opponent, result, score, time, type });
         }
 
         JTable table = new JTable(model);
@@ -426,11 +426,9 @@ public class LobbyView extends JFrame {
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value,
-                    boolean isSelected, boolean hasFocus,
-                    int row, int column) {
-                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                    boolean isSelected, boolean hasFocus, int row, int column) {
 
-                // reset về mặc định mỗi lần render
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 c.setForeground(Color.BLACK);
                 c.setFont(table.getFont());
                 setHorizontalAlignment(SwingConstants.CENTER);
@@ -438,17 +436,21 @@ public class LobbyView extends JFrame {
                 if (!isSelected) {
                     c.setBackground(row % 2 == 0 ? new Color(245, 250, 255) : Color.WHITE);
 
-                    if (column == 1 && value != null) {
-                        String strValue = value.toString().toLowerCase();
-                        if (strValue.contains("player1")) {
-                            c.setForeground(new Color(0, 150, 0)); // ✅ thắng
-                            c.setFont(c.getFont().deriveFont(Font.BOLD));
-                        } else if (strValue.contains("draw") || strValue.contains("hòa")) {
-                            c.setForeground(new Color(255, 140, 0)); // 🟠 hòa
-                            c.setFont(c.getFont().deriveFont(Font.BOLD));
-                        } else if (strValue.contains("player2")) {
-                            c.setForeground(new Color(200, 0, 0)); // 🔴 thua
-                            c.setFont(c.getFont().deriveFont(Font.BOLD));
+                    if (column == 1 && value != null) { // Cột Kết quả
+                        String strValue = value.toString();
+                        switch (strValue) {
+                            case "Win":
+                                c.setForeground(new Color(0, 150, 0)); // xanh
+                                c.setFont(c.getFont().deriveFont(Font.BOLD));
+                                break;
+                            case "Draw":
+                                c.setForeground(new Color(255, 140, 0)); // cam
+                                c.setFont(c.getFont().deriveFont(Font.BOLD));
+                                break;
+                            case "Lose":
+                                c.setForeground(new Color(200, 0, 0)); // đỏ
+                                c.setFont(c.getFont().deriveFont(Font.BOLD));
+                                break;
                         }
                     }
                 } else {
@@ -457,6 +459,7 @@ public class LobbyView extends JFrame {
                 return c;
             }
         });
+
 
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
