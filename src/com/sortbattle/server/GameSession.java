@@ -17,8 +17,7 @@ public class GameSession {
     private final ClientHandler player1Handler;
     private final ClientHandler player2Handler;
     private final GameServer server;  // ← TÊN BIẾN LÀ server
-
-    private GameConfig config;
+  private GameConfig config;
     private List<String> shuffledItems;
     private List<String> sortedItems;
     private final Set<String> correctlyClickedItems = new HashSet<>();
@@ -38,7 +37,7 @@ public class GameSession {
         this.player1Handler = player1Handler;
         this.player2Handler = player2Handler;
         this.server = server;  // ← ĐÚNG LÀ server
-    }
+            }
     
     private static List<String> loadWordDictionary() {
         List<String> words = new ArrayList<>();
@@ -292,9 +291,16 @@ public class GameSession {
             boolean p2WantsRematch = rematchResponses.getOrDefault(player2Handler.getPlayer().getUsername(), false);
 
             if (p1WantsRematch && p2WantsRematch) {
-                resetForNewGame();
+                
                 player2Handler.sendMessage(new Message(MessageType.REMATCH_ACCEPTED, player1Handler.getPlayer().getUsername()));
                 player1Handler.sendMessage(new Message(MessageType.REMATCH_ACCEPTED, player2Handler.getPlayer().getUsername()));
+                resetForNewGame();
+                // ========== YÊU CẦU NGƯỜI BỊ THÁCH ĐẤU CHỌN CẤU HÌNH MỚI ==========
+            // Gửi yêu cầu config đến người bị thách đấu (player2/challengedHandler)
+            Message requestConfigMsg = new Message(MessageType.REQUEST_GAME_CONFIG, null);
+            player2Handler.sendMessage(requestConfigMsg);
+ System.out.println(">>> Waiting for " + player2Handler.getPlayer().getUsername() + 
+                              " (challenged player) to choose new game config...");
             } else if(!p1WantsRematch && !p2WantsRematch) {
                 player1Handler.sendMessage(new Message(MessageType.REMATCH_REJECTED_SILENT, null));
                 player2Handler.sendMessage(new Message(MessageType.REMATCH_REJECTED_SILENT, null));
@@ -356,12 +362,41 @@ public class GameSession {
         Player disconnectedPlayer = disconnectedHandler.getPlayer();
         Player remainingPlayer = remainingHandler.getPlayer();
         
-        disconnectedPlayer.subtractScore(25);
-        remainingPlayer.addScore(50);
+        //Người thoát: trừ 25đ
 
-        remainingHandler.sendMessage(new Message(MessageType.OPPONENT_DISCONNECTED, disconnectedPlayer.getUsername()));
+        server.updatePlayerScore(disconnectedPlayer.getUsername(), -25, false);
+        disconnectedPlayer.setTotalScore(Math.max(0, disconnectedPlayer.getTotalScore() - 25));
+        
+        // Người còn lại: +50 điểm
+        server.updatePlayerScore(remainingPlayer.getUsername(), 50, true);
+        remainingPlayer.setTotalScore(remainingPlayer.getTotalScore() + 50);
 
-        endGame("Đối thủ đã thoát.");
+        // Lưu lịch sử trận đấu
+        int duration = config != null ? (config.getTimeLimitSeconds() - timeLeft) : 0;
+        server.saveMatchHistory(
+            player1Handler.getPlayer().getUsername(),
+            player2Handler.getPlayer().getUsername(),
+            remainingPlayer.getUsername(), // Người còn lại = thắng
+            0, 0, // Điểm trong trận = 0 (vì chưa kết thúc)
+            config != null ? config.getDataType().toString() : "UNKNOWN",
+            config != null ? config.getSortOrder().toString() : "UNKNOWN",
+            config != null ? config.getItemCount() : 0,
+            config != null ? config.getTimeLimitSeconds() : 0,
+            duration
+        );
+        
+        // ========== SỬA: GỬI THÔNG BÁO CHO NGƯỜI CÒN LẠI (KHÔNG ASK REMATCH) ==========
+        remainingHandler.sendMessage(new com.sortbattle.common.Message(
+            com.sortbattle.common.MessageType.OPPONENT_DISCONNECTED, 
+            disconnectedPlayer.getUsername()
+        ));
+        
+        // ========== KẾT THÚC SESSION NGAY, KHÔNG GỌI endGame() ==========
+        gameEnded = true;
+        if (gameTimer != null) {
+            gameTimer.cancel();
+        }
+        
         terminateSession();
-    }
+        }
 }
