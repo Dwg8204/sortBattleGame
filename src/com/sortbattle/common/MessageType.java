@@ -13,6 +13,7 @@ public enum MessageType {
     LOGOUT_REQUEST,
     REMOTE_LOGOUT,
     OPPONENT_DISCONNECTED,
+    REQUEST_GAME_CONFIG,
     
     // Lobby
     PLAYER_LIST_UPDATE,

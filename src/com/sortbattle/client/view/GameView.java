@@ -17,9 +17,9 @@ import com.sortbattle.common.Player;
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.function.Consumer;
+import java.util.*;
 
 public class GameView extends JFrame {
     private final ClientController controller;
@@ -264,6 +264,72 @@ public class GameView extends JFrame {
     waitingDialog.setVisible(true);
     }
     /**
+ * HIỂN THỊ DIALOG CHỌN CẤU HÌNH CHO REMATCH
+ */
+public void showConfigDialog(Consumer<GameConfig> onConfigSelected) {
+    JDialog configDialog = new JDialog(this, "Cấu hình trận đấu mới", true);
+    configDialog.setSize(400, 350);
+    configDialog.setLocationRelativeTo(this);
+    configDialog.setLayout(new GridLayout(6, 2, 10, 10));
+    configDialog.getRootPane().setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+    GameConfig config = new GameConfig(); // Lấy config mặc định
+
+    // 1. Loại nội dung
+    configDialog.add(new JLabel("Loại nội dung:"));
+    JComboBox<String> typeCombo = new JComboBox<>(new String[]{"Từ", "Số"});
+    typeCombo.addActionListener(e -> {
+        config.setDataType("Số".equals(typeCombo.getSelectedItem()) ? 
+            GameConfig.DataType.NUMBER : GameConfig.DataType.WORD);
+    });
+    configDialog.add(typeCombo);
+
+    // 2. Số lượng/Khoảng số
+    configDialog.add(new JLabel("Số lượng/Khoảng:"));
+    JComboBox<Integer> countCombo = new JComboBox<>(new Integer[]{10, 20, 30, 40, 50, 60, 80, 100});
+    countCombo.setSelectedItem(30); // Default for words
+    typeCombo.addActionListener(e -> {
+        if ("Số".equals(typeCombo.getSelectedItem())) {
+            countCombo.setModel(new DefaultComboBoxModel<>(new Integer[]{20, 40, 60, 80, 100}));
+            countCombo.setSelectedItem(60);
+        } else {
+            countCombo.setModel(new DefaultComboBoxModel<>(new Integer[]{10, 20, 30, 40, 50}));
+            countCombo.setSelectedItem(30);
+        }
+    });
+    configDialog.add(countCombo);
+
+    // 3. Thời gian
+    configDialog.add(new JLabel("Thời gian (giây):"));
+    JSpinner timeSpinner = new JSpinner(new SpinnerNumberModel(90, 30, 300, 5));
+    configDialog.add(timeSpinner);
+
+    // 4. Gợi ý
+    configDialog.add(new JLabel("Khung gợi ý:"));
+    JCheckBox hintCheckbox = new JCheckBox("Bật", true);
+    configDialog.add(hintCheckbox);
+
+    configDialog.add(new JLabel()); // Ô trống
+
+    // 5. Nút Bắt đầu
+    JButton startButton = new JButton("Bắt đầu");
+    startButton.addActionListener(e -> {
+        // Set các giá trị config
+        config.setItemCount((Integer) countCombo.getSelectedItem());
+        config.setTimeLimitSeconds((Integer) timeSpinner.getValue());
+        config.setHintsEnabled(hintCheckbox.isSelected());
+        
+        // Đóng dialog
+        configDialog.dispose();
+        
+        // Callback với config đã chọn
+        onConfigSelected.accept(config);
+    });
+    configDialog.add(startButton);
+
+    configDialog.setVisible(true);
+}
+    /**
  * ĐÓNG WAITING DIALOG (THÊM METHOD MỚI)
  */
 public void hideWaitingDialog() {
@@ -271,5 +337,15 @@ public void hideWaitingDialog() {
         waitingDialog.dispose();
         waitingDialog = null;
     }
+}
+//đóng tát cả dialog vaf dispose gameview
+public void forceDispose() {
+    Window[] windows = Window.getWindows();
+    for (Window window : windows) {
+        if (window instanceof JDialog && window.getOwner() == this) {
+            window.dispose();
+        }
+    }
+    this.dispose();
 }
 }

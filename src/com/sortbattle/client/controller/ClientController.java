@@ -10,7 +10,7 @@ import com.sortbattle.common.MessageType;
 import com.sortbattle.common.Player;
 import java.util.Timer;
 import java.util.TimerTask;
-import javax.swing.SwingUtilities;
+
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
@@ -341,6 +341,10 @@ public class ClientController {
                 break;
 
             case GAME_START:
+                if (gameView != null) {
+                    gameView.dispose();
+                    gameView = null;
+                }
                 handleGameStart((Map<String, Object>) message.getPayload());
                 break;
 
@@ -353,16 +357,30 @@ public class ClientController {
                 break;
 
             case OPPONENT_DISCONNECTED:
-                JOptionPane.showMessageDialog(gameView,
-                        "Đối thủ " + message.getPayload() + " đã thoát!",
-                        "Trận đấu kết thúc",
-                        JOptionPane.WARNING_MESSAGE);
-                if (gameView != null) {
-                    gameView.dispose();
-                }
-                if (lobbyView != null) {
-                    lobbyView.setVisible(true);
-                }
+                SwingUtilities.invokeLater(() -> {
+                    // hiển thị thông báo xong về lobby
+                    JOptionPane.showMessageDialog(gameView,
+                            "Đối thủ " + message.getPayload() + " đã thoát!\n" + "Trận đấu kết thúc.",
+                            "Trận đấu kết thúc",
+                            JOptionPane.WARNING_MESSAGE);
+                    if (gameView != null) {
+                        gameView.dispose();
+                        gameView = null;
+                    }
+                    if (lobbyView != null) {
+                        lobbyView.setVisible(true);
+                        new Timer().schedule(new TimerTask() {
+                            @Override
+                            public void run() {
+                                SwingUtilities.invokeLater(() -> {
+                                    if (lobbyView != null && model.getCurrentPlayer() != null) {
+                                        lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
+                                    }
+                                });
+                            }
+                        }, 500);
+                    }
+                });
                 break;
 
             case REMOTE_LOGOUT:
@@ -380,16 +398,47 @@ public class ClientController {
             case REMATCH_ACCEPTED:
                 if (gameView != null) {
                     gameView.hideWaitingDialog();
+                    // gameView.setVisible(false);
+                    // gameView.dispose();
                 }
-                JOptionPane.showMessageDialog(gameView,
-                        "Đối thủ đồng ý chơi lại!",
-                        "Rematch",
-                        JOptionPane.INFORMATION_MESSAGE);
-                if (gameView != null) {
-                    gameView.dispose();
+                // JOptionPane.showMessageDialog(gameView,
+                // "Đối thủ đồng ý chơi lại!",
+                // "Rematch",
+                // JOptionPane.INFORMATION_MESSAGE);
+                // if (gameView != null) {
+                // gameView.setVisible(false);
+                // // gameView.dispose();
+                // }
+                // if (lobbyView != null) {
+                // lobbyView.setVisible(false);
+
+                // }
+                break;
+            case REQUEST_GAME_CONFIG:
+                // Người bị thách đấu chọn cấu hình mới
+                if (gameView != null && gameView.isVisible()) {
+                    final GameView oldGameView = gameView;
+
+                    SwingUtilities.invokeLater(() -> {
+                        oldGameView.showConfigDialog((config) -> {
+                            // gửi config lên server
+                            sendMessage(new Message(MessageType.GAME_CONFIG_SUBMIT, config));
+                            oldGameView.forceDispose();
+                        });
+                        // gameView.showConfigDialog((config) -> {
+                        // // Gửi config lên server
+                        // sendMessage(new Message(MessageType.GAME_CONFIG_SUBMIT, config));
+
+                        // // Đóng gameView cũ, đợi GAME_START
+                        // gameView.dispose();
+                        // gameView = null;
+                        // });
+                    });
+                    gameView = null; // Đặt gameView về null để chờ GAME_START mới
+                } else {
+                    System.err.println("Cannot request game config: gameView is null or not visible");
                 }
                 break;
-
             case REMATCH_REJECTED:
                 if (gameView != null) {
                     gameView.hideWaitingDialog();
@@ -581,19 +630,37 @@ public class ClientController {
      * THOÁT GAME
      */
     public void exitGame() {
-        try {
-            if (model.getCurrentPlayer() != null) {
-                sendMessage(new Message(MessageType.LOGOUT_REQUEST,
-                        model.getCurrentPlayer().getUsername()));
-            }
-
-            if (socket != null && !socket.isClosed()) {
-                socket.close();
-            }
-        } catch (IOException e) {
-            System.err.println("✗ Error during exit: " + e.getMessage());
+        // try {
+        // gửi thông báo thoát trận lên server
+        if (model.getCurrentPlayer() != null) {
+            sendMessage(new Message(MessageType.EXIT_GAME, model.getCurrentPlayer().getUsername()));
         }
-        System.exit(0);
+        // đóng gameview và mở lobby
+        if (gameView != null) {
+            gameView.dispose();
+            gameView = null;
+        }
+        if (lobbyView != null) {
+            lobbyView.setVisible(true);
+            new Timer().schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    SwingUtilities.invokeLater(() -> {
+                        if (lobbyView != null && model.getCurrentPlayer() != null) {
+                            lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
+                        }
+                    });
+                }
+            }, 500);
+        }
+
+        // if (socket != null && !socket.isClosed()) {
+        // socket.close();
+        // }
+        // } catch (IOException e) {
+        // System.err.println("✗ Error during exit: " + e.getMessage());
+        // }
+        // System.exit(0);
     }
 
     /**

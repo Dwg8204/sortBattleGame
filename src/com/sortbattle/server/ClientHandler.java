@@ -96,6 +96,11 @@ public class ClientHandler implements Runnable {
                     gameSession.handlePlayerClick(this, message.getPayload());
                 }
                 break;
+            case EXIT_GAME:
+                if (gameSession != null) {
+                    gameSession.handlePlayerDisconnect(this);
+                }
+                break;
             case REMATCH_RESPONSE:
                 if(gameSession != null){
                     gameSession.handleRematchResponse(this, (boolean) message.getPayload());
