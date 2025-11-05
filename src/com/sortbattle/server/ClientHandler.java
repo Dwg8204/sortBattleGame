@@ -163,14 +163,16 @@ public class ClientHandler implements Runnable {
     }
 
     private void handleLeaderboardRequest() {
-        List<String> leaderboard = server.getLeaderboard(10);
-        sendMessage(new Message(MessageType.LEADERBOARD_RESPONSE, leaderboard));
-    }
+    // Sửa List<String> thành List<Player> để khớp với kiểu dữ liệu mới
+    List<Player> leaderboard = server.getLeaderboard(10); 
+    sendMessage(new Message(MessageType.LEADERBOARD_RESPONSE, leaderboard));
+}
 
     private void handleHistoryRequest(String username) {
-        List<String> history = server.getMatchHistory(username, 10);
-        sendMessage(new Message(MessageType.HISTORY_RESPONSE, history));
-    }
+    // Sửa List<String> thành List<String[]> để khớp với kiểu dữ liệu mới
+    List<String[]> history = server.getMatchHistory(username, 10); 
+    sendMessage(new Message(MessageType.HISTORY_RESPONSE, history));
+}
         private void handleChallengeRequest(String opponentUsername) {
             ClientHandler opponentHandler = server.getClientHandler(opponentUsername);
             if (opponentHandler != null && opponentHandler.getPlayer().getStatus() == Player.PlayerStatus.IDLE) {
@@ -209,7 +211,7 @@ public class ClientHandler implements Runnable {
             synchronized (out) { // Đồng bộ hóa để tránh xung đột ghi
                 out.writeObject(message);
                 out.flush();
-                // out.reset(); // Reset để tránh cache object cũ
+                out.reset(); // Reset để tránh cache object cũ
             }
         }
     } catch (IOException e) {
