@@ -184,10 +184,10 @@ public class DatabaseManager {
     /**
      * Lấy lịch sử trận đấu
      */
-    public List<String> getMatchHistory(String username, int limit) {
-    List<String> history = new ArrayList<>();
+    public List<String[]> getMatchHistory(String username, int limit) {
+    List<String[]> history = new ArrayList<>();
     String sql = "SELECT p1.username as player1, p2.username as player2, w.username as winner, " +
-                 "player1_score, player2_score, game_mode, played_at " +
+                 "game_mode, played_at " +
                  "FROM match_history m " +
                  "JOIN players p1 ON m.player1_id = p1.id " +
                  "JOIN players p2 ON m.player2_id = p2.id " +
@@ -200,31 +200,26 @@ public class DatabaseManager {
         stmt.setString(2, username);
         stmt.setInt(3, limit);
         ResultSet rs = stmt.executeQuery();
-
-        SimpleDateFormat outputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         
         while (rs.next()) {
             String player1 = rs.getString("player1");
             String player2 = rs.getString("player2");
             String winner = rs.getString("winner");
-            int p1Score = rs.getInt("player1_score");
-            int p2Score = rs.getInt("player2_score");
+            
+            String opponent = player1.equals(username) ? player2 : player1;
+            String result;
+            if (winner == null) {
+                result = "Hòa";
+            } else if (winner.equals(username)) {
+                result = "Thắng";
+            } else {
+                result = "Thua";
+            }
+            
+            String timestamp = rs.getTimestamp("played_at").toString();
             String gameMode = rs.getString("game_mode");
-            Timestamp playedAt = rs.getTimestamp("played_at");
-
-            String timeStr = playedAt != null ? outputFormat.format(playedAt) : "";
-
-            String record = String.format("%s vs %s | %s | %d-%d | Winner: %s | %s",
-                player1,
-                player2,
-                gameMode,
-                p1Score,
-                p2Score,
-                winner != null ? winner : "Draw",
-                timeStr  // Không còn thêm ".0"!
-            );
-
-            history.add(record);
+            
+            history.add(new String[]{opponent, result, timestamp, gameMode});
         }
     } catch (SQLException e) {
         System.err.println("✗ Get match history error: " + e.getMessage());
@@ -235,36 +230,27 @@ public class DatabaseManager {
     /**
      * Lấy bảng xếp hạng
      */
-    public List<String> getLeaderboard(int topN) {
-        List<String> leaderboard = new ArrayList<>();
-        String sql = "SELECT username, total_score, games_played, games_won " +
-                     "FROM players ORDER BY total_score DESC LIMIT ?";
+    public List<Player> getLeaderboard(int topN) {
+    List<Player> leaderboard = new ArrayList<>();
+    String sql = "SELECT username, total_score, games_played, games_won " +
+                 "FROM players ORDER BY total_score DESC, games_won DESC LIMIT ?";
+    
+    try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        stmt.setInt(1, topN);
+        ResultSet rs = stmt.executeQuery();
         
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, topN);
-            ResultSet rs = stmt.executeQuery();
-            
-            int rank = 1;
-            while (rs.next()) {
-                int played = rs.getInt("games_played");
-                int won = rs.getInt("games_won");
-                double winRate = played > 0 ? (won * 100.0 / played) : 0;
-                
-                String entry = String.format("#%d - %s: %d điểm | %d/%d thắng (%.1f%%)",
-                    rank++,
-                    rs.getString("username"),
-                    rs.getInt("total_score"),
-                    won,
-                    played,
-                    winRate
-                );
-                leaderboard.add(entry);
-            }
-        } catch (SQLException e) {
-            System.err.println("✗ Get leaderboard error: " + e.getMessage());
+        while (rs.next()) {
+            Player player = new Player(rs.getString("username"));
+            player.setTotalScore(rs.getInt("total_score"));
+            player.setGamesPlayed(rs.getInt("games_played"));
+            player.setGamesWon(rs.getInt("games_won"));
+            leaderboard.add(player);
         }
-        return leaderboard;
+    } catch (SQLException e) {
+        System.err.println("✗ Get leaderboard error: " + e.getMessage());
     }
+    return leaderboard;
+}
     
     public void close() {
         try {
