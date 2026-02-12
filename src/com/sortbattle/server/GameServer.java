@@ -63,20 +63,26 @@ public class GameServer {
     /**
      * CẬP NHẬT ĐIỂM SAU TRẬN ĐẤU
      */
-    public void updatePlayerScore(String username, int scoreChange, boolean won) {
-        dbManager.updatePlayerScore(username, scoreChange, won);
-        
-        // Cập nhật thông tin player trong onlineClients
-        ClientHandler handler = onlineClients.get(username);
-        if (handler != null) {
-            Player player = dbManager.getPlayer(username);
-            if (player != null) {
-                handler.getPlayer().setTotalScore(player.getTotalScore());
-                handler.getPlayer().setGamesPlayed(player.getGamesPlayed());
-                handler.getPlayer().setGamesWon(player.getGamesWon());
-            }
-        }
+    public synchronized Player updatePlayerScore(String username, int scoreChange, boolean won) {
+    // 1. Cập nhật vào DB
+    dbManager.updatePlayerScore(username, scoreChange, won);
+    
+    // 2. Lấy lại thông tin mới nhất từ DB
+    Player updatedPlayer = dbManager.getPlayer(username);
+
+    // 3. Cập nhật đối tượng trong bộ nhớ server
+    ClientHandler handler = onlineClients.get(username);
+    if (handler != null && updatedPlayer != null) {
+        Player playerInMemory = handler.getPlayer();
+        playerInMemory.setTotalScore(updatedPlayer.getTotalScore());
+        playerInMemory.setGamesPlayed(updatedPlayer.getGamesPlayed());
+        playerInMemory.setGamesWon(updatedPlayer.getGamesWon());
     }
+    
+    // 4. Trả về đối tượng đã được cập nhật hoàn toàn
+    //    (Bước này vẫn giữ nguyên để endGame hoạt động chính xác)
+    return updatedPlayer;
+}
 
     /**
      * LƯU LỊCH SỬ TRẬN ĐẤU
@@ -90,16 +96,16 @@ public class GameServer {
     /**
      * LẤY BẢNG XẾP HẠNG
      */
-    public List<String> getLeaderboard(int topN) {
-        return dbManager.getLeaderboard(topN);
-    }
+    public List<Player> getLeaderboard(int topN) {
+    return dbManager.getLeaderboard(topN);
+}
 
     /**
      * LẤY LỊCH SỬ TRẬN ĐẤU
      */
-    public List<String> getMatchHistory(String username, int limit) {
-        return dbManager.getMatchHistory(username, limit);
-    }
+    public List<String[]> getMatchHistory(String username, int limit) {
+    return dbManager.getMatchHistory(username, limit);
+}
 
     /**
      * THÊM CLIENT VÀO DANH SÁCH ONLINE

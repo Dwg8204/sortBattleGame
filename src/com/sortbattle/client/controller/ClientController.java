@@ -112,6 +112,7 @@ public class ClientController {
                 return;
             }
             out.writeObject(message);
+            out.reset();
             out.flush();
             System.out.println(">>> Sent to Server: " + message.getType());
         } catch (IOException e) {
@@ -184,39 +185,56 @@ public class ClientController {
                 break;
                 
             case LEADERBOARD_RESPONSE:
-                showLeaderboard((List<String>) message.getPayload());
-                break;
+            // SỬA ĐỔI: Gọi phương thức mới của LobbyView
+            if (lobbyView != null && lobbyView.isVisible()) {
+                List<Player> leaderboardData = (List<Player>) message.getPayload();
+                lobbyView.showLeaderboardDialog(leaderboardData);
+            }
+            break;
 
-            case HISTORY_RESPONSE:
-                showHistory((List<String>) message.getPayload());
-                break;
+        case HISTORY_RESPONSE:
+            // SỬA ĐỔI: Gọi phương thức mới của LobbyView
+            if (lobbyView != null && lobbyView.isVisible()) {
+                List<String[]> historyData = (List<String[]>) message.getPayload();
+                if (historyData.isEmpty()) {
+                    JOptionPane.showMessageDialog(lobbyView, 
+                        "Bạn chưa có lịch sử trận đấu", 
+                        "Lịch sử", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    lobbyView.showMatchHistoryDialog(historyData);
+                }
+            }
+            break;
                 
             case PLAYER_LIST_UPDATE:
-                model.setOnlinePlayers((List<Player>) message.getPayload());
+                List<Player> receivedPlayers = (List<Player>) message.getPayload();
+                model.setOnlinePlayers(receivedPlayers); // Cập nhật danh sách chung
+
                 if (model.getCurrentPlayer() != null) {
-                    for (Player p : model.getOnlinePlayers()) {
+                    // Tìm người chơi hiện tại trong danh sách MỚI nhận được
+                    for (Player p : receivedPlayers) {
                         if (p.getUsername().equals(model.getCurrentPlayer().getUsername())) {
-                            // Cập nhật điểm từ danh sách mới
-                            model.getCurrentPlayer().setTotalScore(p.getTotalScore());
-                            model.getCurrentPlayer().setGamesPlayed(p.getGamesPlayed());
-                            model.getCurrentPlayer().setGamesWon(p.getGamesWon());
                             
-                            System.out.println("✓ Updated current player score: " + p.getTotalScore());
+                            // === PHẦN SỬA LỖI QUAN TRỌNG ===
+                            // THAY THẾ HOÀN TOÀN đối tượng player cũ bằng đối tượng mới từ danh sách.
+                            // Điều này đảm bảo chúng ta đang sử dụng phiên bản mới nhất mà stream cung cấp.
+                            model.setCurrentPlayer(p); 
+                            // ==============================
+                            
+                            System.out.println("✓ Updated current player object. New score: " + p.getTotalScore());
                             break;
                         }
                     }
                 }
-                // Cập nhật luôn nếu lobbyView đã tồn tại
+
+                // Cập nhật giao diện (logic này vẫn giữ nguyên)
                 if (lobbyView != null && lobbyView.isVisible()) {
                     lobbyView.updatePlayerList(model.getOnlinePlayers(), model.getCurrentPlayer().getUsername());
                     if (model.getCurrentPlayer() != null) {
                         lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
                     }
                 }
-                // CẬP NHẬT THÔNG TIN BẢN THÂN (nếu có trong danh sách)
-                
-                // Nếu chưa có lobbyView, danh sách đã lưu trong model
-                // sẽ được hiển thị khi tạo lobbyView ở LOGIN_SUCCESS
                 break;
                 
             case INCOMING_CHALLENGE:
@@ -251,31 +269,34 @@ public class ClientController {
                 break;
                 
             case OPPONENT_DISCONNECTED:
-            SwingUtilities.invokeLater(() -> {
-            //hiển thị thông báo xong về lobby
-                JOptionPane.showMessageDialog(gameView, 
-                    "Đối thủ " + message.getPayload() + " đã thoát!\n" + "Trận đấu kết thúc.", 
-                    "Trận đấu kết thúc", 
-                    JOptionPane.WARNING_MESSAGE);
-                if (gameView != null) {
-                    gameView.dispose();
-                    gameView = null;
-                }
-                if (lobbyView != null) {
-                    lobbyView.setVisible(true);
-                    new Timer().schedule(new TimerTask() {
-                        @Override
-                        public void run() {
-                            SwingUtilities.invokeLater(() -> {
-                                if (lobbyView != null && model.getCurrentPlayer() != null) {
-                                    lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
-                                }
-                            });
-                        }
-                    }, 500);
-                }
-            });
-                break;
+    SwingUtilities.invokeLater(() -> {
+        // Hiển thị thông báo xong về lobby
+        JOptionPane.showMessageDialog(gameView, 
+            "Đối thủ " + message.getPayload() + " đã thoát!\n" + "Trận đấu kết thúc.", 
+            "Trận đấu kết thúc", 
+            JOptionPane.WARNING_MESSAGE);
+        
+        if (gameView != null) {
+            gameView.dispose();
+            gameView = null;
+        }
+
+        if (lobbyView != null) {
+            lobbyView.setVisible(true);
+            
+            // ========== PHẦN SỬA LỖI QUAN TRỌNG ==========
+            // Ngay sau khi hiển thị lại Lobby, hãy buộc nó cập nhật
+            // danh sách người chơi và thông điệp chào mừng từ model.
+            // Model đã được cập nhật bởi tin nhắn PLAYER_LIST_UPDATE trước đó.
+            if (model.getCurrentPlayer() != null) {
+                lobbyView.updatePlayerList(model.getOnlinePlayers(), model.getCurrentPlayer().getUsername());
+                lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
+            }
+            // BỎ Timer không cần thiết ở đây nữa.
+            // ===========================================
+        }
+    });
+    break;
                 
             case REMOTE_LOGOUT:
                 JOptionPane.showMessageDialog(null, 
@@ -334,53 +355,48 @@ public class ClientController {
                     System.err.println("Cannot request game config: gameView is null or not visible");
                 }
                 break;
-            case REMATCH_REJECTED:
-                if (gameView != null) {
-                    gameView.hideWaitingDialog();  
-                }
-                JOptionPane.showMessageDialog(lobbyView, 
-                    "Đối thủ từ chối chơi lại.", 
-                    "Rematch", 
-                    JOptionPane.INFORMATION_MESSAGE);
-                if (gameView != null) {
-                    gameView.dispose();
-                }
-                if (lobbyView != null) {
-                    lobbyView.setVisible(true);
-                }
-                // Đợi 500ms để nhận PLAYER_LIST_UPDATE từ server, rồi cập nhật UI
-    new Timer().schedule(new TimerTask() {
-        @Override
-        public void run() {
-            SwingUtilities.invokeLater(() -> {
-                if (lobbyView != null && model.getCurrentPlayer() != null) {
-                    lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
-                }
-            });
+            // Sửa trong file ClientController.java
+
+case REMATCH_REJECTED:
+    if (gameView != null) {
+        gameView.hideWaitingDialog();
+    }
+    JOptionPane.showMessageDialog(lobbyView,
+        "Đối thủ từ chối chơi lại.",
+        "Rematch",
+        JOptionPane.INFORMATION_MESSAGE);
+    
+    if (gameView != null) {
+        gameView.dispose();
+        gameView = null;
+    }
+    if (lobbyView != null) {
+        lobbyView.setVisible(true);
+        // Buộc cập nhật giao diện sảnh chờ với dữ liệu mới nhất từ model
+        if (model.getCurrentPlayer() != null) {
+            lobbyView.updatePlayerList(model.getOnlinePlayers(), model.getCurrentPlayer().getUsername());
+            lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
         }
-    }, 500);
-                break;
-            case REMATCH_REJECTED_SILENT:
-                // Không hiển thị thông báo, tự động về lobby
-                if (gameView != null) {
-                    gameView.hideWaitingDialog();
-                    gameView.dispose();
-                }
-                if (lobbyView != null) {
-                    lobbyView.setVisible(true);
-                }
-                // Đợi 500ms để nhận PLAYER_LIST_UPDATE từ server, rồi cập nhật UI
-                new Timer().schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        SwingUtilities.invokeLater(() -> {
-                            if (lobbyView != null && model.getCurrentPlayer() != null) {
-                                lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
-                            }
-                        });
-                    }
-                }, 500);
-                break;
+    }
+    break;
+            // Sửa trong file ClientController.java
+
+case REMATCH_REJECTED_SILENT:
+    // Không hiển thị thông báo, tự động về lobby
+    if (gameView != null) {
+        gameView.hideWaitingDialog();
+        gameView.dispose();
+        gameView = null;
+    }
+    if (lobbyView != null) {
+        lobbyView.setVisible(true);
+        // Buộc cập nhật giao diện sảnh chờ với dữ liệu mới nhất từ model
+        if (model.getCurrentPlayer() != null) {
+            lobbyView.updatePlayerList(model.getOnlinePlayers(), model.getCurrentPlayer().getUsername());
+            lobbyView.updateWelcomeMessage(model.getCurrentPlayer().getUsername());
+        }
+    }
+    break;
                             
             default:
                 System.out.println("⚠ Unknown message type: " + message.getType());
@@ -561,48 +577,48 @@ public class ClientController {
     /**
      * HIỂN THỊ BẢNG XẾP HẠNG
      */
-    private void showLeaderboard(List<String> leaderboard) {
-        Component parent = lobbyView != null ? lobbyView : gameView;
+    // private void showLeaderboard(List<String> leaderboard) {
+    //     Component parent = lobbyView != null ? lobbyView : gameView;
         
-        if (leaderboard.isEmpty()) {
-            JOptionPane.showMessageDialog(parent, 
-                "Chưa có dữ liệu bảng xếp hạng", 
-                "Bảng xếp hạng", 
-                JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
+    //     if (leaderboard.isEmpty()) {
+    //         JOptionPane.showMessageDialog(parent, 
+    //             "Chưa có dữ liệu bảng xếp hạng", 
+    //             "Bảng xếp hạng", 
+    //             JOptionPane.INFORMATION_MESSAGE);
+    //         return;
+    //     }
         
-        String text = "=== TOP 10 PLAYERS ===\n\n" + String.join("\n", leaderboard);
-        JTextArea textArea = new JTextArea(text);
-        textArea.setEditable(false);
-        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        JScrollPane scrollPane = new JScrollPane(textArea);
-        scrollPane.setPreferredSize(new Dimension(500, 300));
-        JOptionPane.showMessageDialog(parent, scrollPane, "Bảng xếp hạng", JOptionPane.INFORMATION_MESSAGE);
-    }
+    //     String text = "=== TOP 10 PLAYERS ===\n\n" + String.join("\n", leaderboard);
+    //     JTextArea textArea = new JTextArea(text);
+    //     textArea.setEditable(false);
+    //     textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+    //     JScrollPane scrollPane = new JScrollPane(textArea);
+    //     scrollPane.setPreferredSize(new Dimension(500, 300));
+    //     JOptionPane.showMessageDialog(parent, scrollPane, "Bảng xếp hạng", JOptionPane.INFORMATION_MESSAGE);
+    // }
 
-    /**
-     * HIỂN THỊ LỊCH SỬ
-     */
-    private void showHistory(List<String> history) {
-        Component parent = lobbyView != null ? lobbyView : gameView;
+    // /**
+    //  * HIỂN THỊ LỊCH SỬ
+    //  */
+    // private void showHistory(List<String> history) {
+    //     Component parent = lobbyView != null ? lobbyView : gameView;
         
-        if (history.isEmpty()) {
-            JOptionPane.showMessageDialog(parent, 
-                "Bạn chưa có lịch sử trận đấu", 
-                "Lịch sử", 
-                JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
+    //     if (history.isEmpty()) {
+    //         JOptionPane.showMessageDialog(parent, 
+    //             "Bạn chưa có lịch sử trận đấu", 
+    //             "Lịch sử", 
+    //             JOptionPane.INFORMATION_MESSAGE);
+    //         return;
+    //     }
         
-        String text = "=== LỊCH SỬ TRẬN ĐẤU ===\n\n" + String.join("\n\n", history);
-        JTextArea textArea = new JTextArea(text);
-        textArea.setEditable(false);
-        textArea.setFont(new Font("Monospaced", Font.PLAIN, 11));
-        JScrollPane scrollPane = new JScrollPane(textArea);
-        scrollPane.setPreferredSize(new Dimension(600, 350));
-        JOptionPane.showMessageDialog(parent, scrollPane, "Lịch sử trận đấu", JOptionPane.INFORMATION_MESSAGE);
-    }
+    //     String text = "=== LỊCH SỬ TRẬN ĐẤU ===\n\n" + String.join("\n\n", history);
+    //     JTextArea textArea = new JTextArea(text);
+    //     textArea.setEditable(false);
+    //     textArea.setFont(new Font("Monospaced", Font.PLAIN, 11));
+    //     JScrollPane scrollPane = new JScrollPane(textArea);
+    //     scrollPane.setPreferredSize(new Dimension(600, 350));
+    //     JOptionPane.showMessageDialog(parent, scrollPane, "Lịch sử trận đấu", JOptionPane.INFORMATION_MESSAGE);
+    // }
 
     /**
      * GETTER MODEL
